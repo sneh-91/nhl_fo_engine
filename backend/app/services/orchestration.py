@@ -11,6 +11,7 @@ from ..errors import (
     IdentityResolutionError,
     MissingConfigurationError,
     PlayerNotFoundError,
+    UnsupportedQuestionError,
     UpstreamRequestError,
 )
 from ..models import (
@@ -41,6 +42,31 @@ Output style:
 - If comparing or ranking players, base all takeaways only on tool-returned data.
 """.strip()
 
+SCOPE_CLASSIFIER_PROMPT = """
+You are a strict scope classifier for HockeyOps AI.
+
+Return only JSON with this exact shape:
+{"in_scope": true|false, "message": "<short user-facing sentence>"}
+
+Mark in_scope true only if the question is about NHL hockey operations topics that HockeyOps AI can reasonably handle with NHL API facts and CapWages contract data, such as:
+- NHL players
+- NHL teams or rosters
+- NHL contracts, cap hits, AAV, clauses, term
+- NHL player comparisons
+- NHL player discovery/search questions
+
+Mark in_scope false for:
+- non-hockey questions
+- hockey questions outside NHL scope
+- general chat, coding help, math, weather, history, or other unrelated topics
+
+If false, the message should be brief and user-facing, for example:
+"HockeyOps AI only handles NHL player, roster, and contract questions right now."
+
+If true, the message should be:
+"ok"
+""".strip()
+
 
 class HockeyOpsOrchestrator:
     def __init__(self, settings: Settings, tool_service: PlayerToolService) -> None:
@@ -57,6 +83,10 @@ class HockeyOpsOrchestrator:
             raise MissingConfigurationError(
                 "OPENAI_API_KEY is missing. Add it to the root .env before using Phase 5 orchestration."
             )
+
+        scope_decision = await self._classify_scope(question)
+        if not scope_decision["in_scope"]:
+            raise UnsupportedQuestionError(scope_decision["message"])
 
         input_items: list[Any] = [{"role": "user", "content": question}]
         tool_invocations: list[ToolInvocationRecord] = []
@@ -116,6 +146,59 @@ class HockeyOpsOrchestrator:
             request["reasoning"] = {"effort": self._settings.openai_reasoning_effort}
 
         return await self._client.responses.create(**request)
+
+    async def _classify_scope(self, question: str) -> dict[str, Any]:
+        if self._client is None:
+            raise MissingConfigurationError(
+                "OPENAI_API_KEY is missing. Add it to the root .env before using Phase 5 orchestration."
+            )
+
+        response = await self._client.responses.create(
+            model=self._settings.openai_model,
+            instructions=SCOPE_CLASSIFIER_PROMPT,
+            input=[{"role": "user", "content": question}],
+            max_output_tokens=120,
+        )
+
+        parsed = self._parse_scope_response(response.output_text)
+        if parsed is not None:
+            return parsed
+
+        normalized = question.casefold()
+        obvious_off_topic_terms = (
+            "weather",
+            "recipe",
+            "capital of",
+            "python code",
+            "javascript",
+            "stock market",
+            "bitcoin",
+            "movie",
+            "restaurant",
+        )
+        if any(term in normalized for term in obvious_off_topic_terms):
+            return {
+                "in_scope": False,
+                "message": "HockeyOps AI only handles NHL player, roster, and contract questions right now.",
+            }
+
+        return {"in_scope": True, "message": "ok"}
+
+    def _parse_scope_response(self, raw_text: str) -> dict[str, Any] | None:
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError:
+            return None
+
+        if not isinstance(payload, dict):
+            return None
+
+        in_scope = payload.get("in_scope")
+        message = payload.get("message")
+        if not isinstance(in_scope, bool) or not isinstance(message, str):
+            return None
+
+        return {"in_scope": in_scope, "message": message.strip() or "ok"}
 
     def _tool_definitions(self) -> list[dict[str, Any]]:
         return [

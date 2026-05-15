@@ -21,6 +21,10 @@ class MissingConfigurationError(ExternalAPIError):
     """Raised when a required API setting is missing."""
 
 
+class UnsupportedQuestionError(RuntimeError):
+    """Raised when a user question is outside the HockeyOps AI scope."""
+
+
 class UpstreamRequestError(ExternalAPIError):
     def __init__(
         self,

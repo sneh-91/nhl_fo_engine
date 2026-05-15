@@ -10,6 +10,7 @@ from .clients.capwages import CapWagesClient
 from .clients.nhl import NHLClient
 from .config import get_settings
 from .errors import MissingConfigurationError
+from .errors import UnsupportedQuestionError
 from .errors import UpstreamRequestError
 from .models import ApiErrorResponse
 from .models import AskQuestionRequest
@@ -115,6 +116,7 @@ async def orchestrator_diagnostics() -> OrchestratorDiagnosticsResponse:
     "/api/ask",
     response_model=AskQuestionResponse,
     responses={
+        422: {"model": ApiErrorResponse},
         502: {"model": ApiErrorResponse},
         503: {"model": ApiErrorResponse},
     },
@@ -124,6 +126,8 @@ async def ask_question(payload: AskQuestionRequest) -> AskQuestionResponse:
 
     try:
         result = await orchestrator.answer_question(payload.question)
+    except UnsupportedQuestionError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except MissingConfigurationError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except UpstreamRequestError as error:
