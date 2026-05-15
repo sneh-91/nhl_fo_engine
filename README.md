@@ -2,20 +2,21 @@
 
 This repository is currently building toward `v0.5`.
 
-Phase 2 currently includes:
+Phase 5 currently includes:
 
 - a FastAPI backend shell
 - a React frontend shell
 - centralized backend settings
 - reusable NHL and CapWages source clients
+- a canonical internal player schema
+- cross-source identity matching and normalization rules
+- deterministic backend tool methods for search, profile, contract, summary, and comparison
+- an internal OpenAI Responses API orchestration layer over those tools
 - one clear local startup path
 
 The current build still does not include:
 
-- tool calling
-- identity matching
-- normalization
-- model orchestration
+- a public Phase 6 query route
 
 ## Docs
 
@@ -71,6 +72,14 @@ Optional backend variables:
 - `NHL_API_BASE_URL`
 - `CAPWAGES_API_BASE_URL`
 - `SOURCE_REQUEST_TIMEOUT_SECONDS`
+- `MAX_PARALLEL_SOURCE_REQUESTS`
+- `ROSTER_CACHE_TTL_SECONDS`
+- `PLAYER_CACHE_TTL_SECONDS`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `OPENAI_REASONING_EFFORT`
+- `OPENAI_MAX_TOOL_ROUNDS`
+- `OPENAI_MAX_OUTPUT_TOKENS`
 
 Frontend variables live in `frontend/.env` and currently include:
 
@@ -84,3 +93,17 @@ Once both apps are running:
 - frontend shell: `http://127.0.0.1:5173`
 
 The frontend should display backend health information and the current phase boundary.
+
+## Phase 5 Verification
+
+Once `OPENAI_API_KEY` is present in the root `.env`, you can run:
+
+```powershell
+python scripts/test_phase5_orchestrator.py "Compare Aaron Ekblad vs Brandon Carlo"
+```
+
+Or try a discovery query:
+
+```powershell
+python scripts/test_phase5_orchestrator.py "Find right-shot defensemen on Florida under 7 million AAV"
+```

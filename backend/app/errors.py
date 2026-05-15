@@ -5,6 +5,18 @@ class ExternalAPIError(RuntimeError):
     """Base error for upstream source failures."""
 
 
+class IdentityResolutionError(RuntimeError):
+    """Raised when cross-source player identity cannot be resolved cleanly."""
+
+
+class PlayerNotFoundError(RuntimeError):
+    """Raised when no active NHL roster player matches a tool query."""
+
+
+class AmbiguousPlayerError(RuntimeError):
+    """Raised when multiple active NHL roster players match a tool query."""
+
+
 class MissingConfigurationError(ExternalAPIError):
     """Raised when a required API setting is missing."""
 
