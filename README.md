@@ -2,18 +2,19 @@
 
 This repository is currently building toward `v0.5`.
 
-Phase 1 sets up only:
+Phase 2 currently includes:
 
 - a FastAPI backend shell
 - a React frontend shell
 - centralized backend settings
+- reusable NHL and CapWages source clients
 - one clear local startup path
 
-Phase 1 does not include:
+The current build still does not include:
 
-- NHL API client integration
-- CapWages client integration
 - tool calling
+- identity matching
+- normalization
 - model orchestration
 
 ## Docs
@@ -64,15 +65,22 @@ Current relevant backend variable:
 
 - `CAPWAGES_API_KEY`
 
+Optional backend variables:
+
+- `FRONTEND_ORIGIN`
+- `NHL_API_BASE_URL`
+- `CAPWAGES_API_BASE_URL`
+- `SOURCE_REQUEST_TIMEOUT_SECONDS`
+
 Frontend variables live in `frontend/.env` and currently include:
 
 - `VITE_API_BASE_URL`
 
-## Phase 1 Verification
+## Current Verification
 
 Once both apps are running:
 
 - backend health: `http://127.0.0.1:8000/api/health`
 - frontend shell: `http://127.0.0.1:5173`
 
-The frontend should display backend health information and the current Phase 1 boundary.
+The frontend should display backend health information and the current phase boundary.
