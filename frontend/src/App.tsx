@@ -154,9 +154,13 @@ const hiddenLimitationPills = new Set([
 ]);
 
 const comparisonCategories = new Set([
+  "games_played",
   "goals",
   "assists",
   "points",
+  "goals_per_game",
+  "assists_per_game",
+  "points_per_game",
   "shots",
   "shooting_pct",
   "current_aav",
@@ -489,11 +493,101 @@ function PlayerDetailsView(props: { result: PlayerSummaryResult }) {
   );
 }
 
+function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
+  return {
+    identity: result.identity,
+    profile: result.profile,
+    active_contract: {
+      current_clause: null,
+      current_cap_hit: null,
+      current_aav: null,
+      years_remaining: null,
+      expiry_status: null,
+      active_season: null,
+    },
+    stats: result.stats,
+    recent_form: result.recent_form,
+    source_coverage: result.source_coverage,
+  };
+}
+
+function collectSupportPlayers(toolInvocations: ToolInvocation[]): ToolPlayerData[] {
+  const players = new Map<string, ToolPlayerData>();
+
+  function addPlayer(player: ToolPlayerData) {
+    const key = player.identity.nhl_id !== null
+      ? `nhl:${player.identity.nhl_id}`
+      : `name:${player.identity.full_name.toLowerCase()}`;
+    if (!players.has(key)) {
+      players.set(key, player);
+    }
+  }
+
+  for (const toolInvocation of toolInvocations) {
+    if (!toolInvocation.output.ok || !toolInvocation.output.result) {
+      continue;
+    }
+
+    const result = toolInvocation.output.result;
+    if ("players" in result && Array.isArray(result.players)) {
+      for (const player of result.players) {
+        addPlayer(player);
+      }
+      continue;
+    }
+
+    if ("player_a" in result && "player_b" in result) {
+      addPlayer(result.player_a);
+      addPlayer(result.player_b);
+      continue;
+    }
+
+    if ("player" in result) {
+      addPlayer(result.player);
+      continue;
+    }
+
+    if ("identity" in result && "profile" in result && "stats" in result && "recent_form" in result) {
+      addPlayer(toProfileToolPlayer(result));
+    }
+  }
+
+  return [...players.values()];
+}
+
+function MultiPlayerCardsView(props: { players: ToolPlayerData[] }) {
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>Players</h3>
+        </div>
+        <p className="result-meta">
+          {props.players.length} player{props.players.length === 1 ? "" : "s"}
+        </p>
+      </div>
+      <div className="player-grid">
+        {props.players.map((player) => (
+          <PlayerCard
+            key={`${player.identity.nhl_id ?? player.identity.full_name}`}
+            player={player}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
+  const supportPlayers = collectSupportPlayers(props.toolInvocations);
   const comparisonInvocation = [...props.toolInvocations]
     .reverse()
     .find((toolInvocation) => toolInvocation.tool_name === "compare_players");
-  const toolInvocations = comparisonInvocation ? [comparisonInvocation] : props.toolInvocations;
+  const toolInvocations = supportPlayers.length > 2
+    ? props.toolInvocations
+    : comparisonInvocation
+      ? [comparisonInvocation]
+      : props.toolInvocations;
 
   if (toolInvocations.length === 0) {
     return null;
@@ -508,8 +602,13 @@ function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
       </div>
 
       <div className="trace-stack">
+        {supportPlayers.length > 2 ? <MultiPlayerCardsView players={supportPlayers} /> : null}
         {toolInvocations.map((toolInvocation, index) => {
           const key = `${toolInvocation.tool_name}-${index}`;
+
+          if (supportPlayers.length > 2) {
+            return null;
+          }
 
           if (!toolInvocation.output.ok || !toolInvocation.output.result) {
             return (
@@ -729,7 +828,6 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <p className="section-kicker">Answer</p>
-                <h2>{result.question}</h2>
               </div>
             </div>
 

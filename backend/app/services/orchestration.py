@@ -35,11 +35,18 @@ Hard rules:
 - Do not claim advanced analytics, MoneyPuck insights, or strategic team-fit conclusions.
 - If the question is unsupported by the available tools and data, say so plainly.
 - Use the tool outputs as the source of truth.
+- If the user is comparing two players or asking who had the better season, use compare_players rather than separate summary calls.
 
 Output style:
 - Keep the answer concise and direct.
+- Write in plain natural text, like a smart friend texting an analysis.
+- Do not use markdown, bold, headers, or code formatting.
+- Avoid nested bullets. Prefer short paragraphs or compact plain-text lines.
 - Include explicit limitations when source coverage is incomplete or the question exceeds scope.
 - If comparing or ranking players, base all takeaways only on tool-returned data.
+- When citing a player's season production, include games played (GP) alongside the scoring line when available.
+- If player games played differ meaningfully, discuss both total production and rate production.
+- Do not treat a tiny total-point edge as decisive without acknowledging the games-played context.
 """.strip()
 
 SCOPE_CLASSIFIER_PROMPT = """
@@ -98,7 +105,7 @@ class HockeyOpsOrchestrator:
             if not function_calls:
                 return OrchestratedAnswerResult(
                     model=self._settings.openai_model,
-                    answer_text=response.output_text,
+                    answer_text=self._clean_answer_text(response.output_text),
                     tool_invocations=tool_invocations,
                     limitations=self._dedupe_limitations(limitations),
                     response_id=getattr(response, "id", None),
@@ -199,6 +206,13 @@ class HockeyOpsOrchestrator:
             return None
 
         return {"in_scope": in_scope, "message": message.strip() or "ok"}
+
+    def _clean_answer_text(self, raw_text: str) -> str:
+        cleaned = raw_text.replace("**", "").replace("__", "").replace("`", "")
+        cleaned = cleaned.replace("\r\n", "\n")
+        while "\n\n\n" in cleaned:
+            cleaned = cleaned.replace("\n\n\n", "\n\n")
+        return cleaned.strip()
 
     def _tool_definitions(self) -> list[dict[str, Any]]:
         return [

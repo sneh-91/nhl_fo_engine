@@ -103,6 +103,12 @@ def _parse_toi_seconds(value: str | None) -> int | None:
     return int(minutes) * 60 + int(seconds)
 
 
+def _safe_rate(numerator: int | None, denominator: int | None) -> float | None:
+    if numerator is None or denominator is None or denominator <= 0:
+        return None
+    return round(numerator / denominator, 3)
+
+
 class PlayerToolService:
     def __init__(
         self,
@@ -514,6 +520,24 @@ class PlayerToolService:
             self._comparison_fact("goals", player_a.stats.goals, player_b.stats.goals, higher_is_better=True),
             self._comparison_fact("assists", player_a.stats.assists, player_b.stats.assists, higher_is_better=True),
             self._comparison_fact("points", player_a.stats.points, player_b.stats.points, higher_is_better=True),
+            self._comparison_fact(
+                "goals_per_game",
+                _safe_rate(player_a.stats.goals, player_a.stats.games_played),
+                _safe_rate(player_b.stats.goals, player_b.stats.games_played),
+                higher_is_better=True,
+            ),
+            self._comparison_fact(
+                "assists_per_game",
+                _safe_rate(player_a.stats.assists, player_a.stats.games_played),
+                _safe_rate(player_b.stats.assists, player_b.stats.games_played),
+                higher_is_better=True,
+            ),
+            self._comparison_fact(
+                "points_per_game",
+                _safe_rate(player_a.stats.points, player_a.stats.games_played),
+                _safe_rate(player_b.stats.points, player_b.stats.games_played),
+                higher_is_better=True,
+            ),
             self._comparison_fact("shots", player_a.stats.shots, player_b.stats.shots, higher_is_better=True),
             self._comparison_fact("shooting_pct", player_a.stats.shooting_pct, player_b.stats.shooting_pct, higher_is_better=True),
             self._comparison_fact("avg_toi", player_a.stats.avg_toi, player_b.stats.avg_toi),
