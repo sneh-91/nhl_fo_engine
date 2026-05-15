@@ -246,3 +246,41 @@ class OrchestratedAnswerResult(BaseModel):
     tool_invocations: list[ToolInvocationRecord] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     response_id: str | None = None
+
+
+class AskQuestionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(min_length=1, max_length=5000)
+
+    @model_validator(mode="after")
+    def validate_question(self) -> "AskQuestionRequest":
+        self.question = self.question.strip()
+        if not self.question:
+            raise ValueError("Question must not be empty.")
+        return self
+
+
+class AskQuestionSupportData(BaseModel):
+    tool_invocations: list[ToolInvocationRecord] = Field(default_factory=list)
+
+
+class AskQuestionResponse(BaseModel):
+    question: str
+    answer_text: str
+    limitations: list[str] = Field(default_factory=list)
+    support_data: AskQuestionSupportData
+    model: str
+    response_id: str | None = None
+
+
+class ApiErrorResponse(BaseModel):
+    detail: str
+
+
+class OrchestratorDiagnosticsResponse(BaseModel):
+    app_version: str
+    openai_model: str
+    openai_configured: bool
+    openai_max_tool_rounds: int
+    openai_max_output_tokens: int

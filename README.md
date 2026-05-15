@@ -2,7 +2,7 @@
 
 This repository is currently building toward `v0.5`.
 
-Phase 5 currently includes:
+Phase 6 currently includes:
 
 - a FastAPI backend shell
 - a React frontend shell
@@ -12,11 +12,12 @@ Phase 5 currently includes:
 - cross-source identity matching and normalization rules
 - deterministic backend tool methods for search, profile, contract, summary, and comparison
 - an internal OpenAI Responses API orchestration layer over those tools
+- a public backend `POST /api/ask` route
 - one clear local startup path
 
 The current build still does not include:
 
-- a public Phase 6 query route
+- a frontend query/chat flow over the Phase 6 API
 
 ## Docs
 
@@ -62,9 +63,10 @@ If needed, create `frontend/.env` from `frontend/.env.example`.
 
 Root `.env` is used for backend settings.
 
-Current relevant backend variable:
+Current required backend variables:
 
 - `CAPWAGES_API_KEY`
+- `OPENAI_API_KEY`
 
 Optional backend variables:
 
@@ -90,20 +92,21 @@ Frontend variables live in `frontend/.env` and currently include:
 Once both apps are running:
 
 - backend health: `http://127.0.0.1:8000/api/health`
+- backend diagnostics: `http://127.0.0.1:8000/api/diagnostics/orchestrator`
 - frontend shell: `http://127.0.0.1:5173`
 
 The frontend should display backend health information and the current phase boundary.
 
-## Phase 5 Verification
+## Phase 6 Verification
 
-Once `OPENAI_API_KEY` is present in the root `.env`, you can run:
+Once `OPENAI_API_KEY` is present in the root `.env`, start the backend and run:
 
 ```powershell
-python scripts/test_phase5_orchestrator.py "Compare Aaron Ekblad vs Brandon Carlo"
+python scripts/test_phase6_api.py "Compare Aaron Ekblad vs Brandon Carlo"
 ```
 
 Or try a discovery query:
 
 ```powershell
-python scripts/test_phase5_orchestrator.py "Find right-shot defensemen on Florida under 7 million AAV"
+python scripts/test_phase6_api.py "Find right-shot defensemen on Florida under 7 million AAV"
 ```

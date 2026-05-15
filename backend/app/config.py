@@ -13,7 +13,7 @@ ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     app_name: str = "HockeyOps AI"
-    app_version: str = "0.5.0-phase5"
+    app_version: str = "0.5.0-phase6"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     frontend_origin: str = "http://localhost:5173"
