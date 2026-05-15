@@ -773,7 +773,7 @@ export default function App() {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">HockeyOps AI</p>
-          <h1>Ask hockey ops questions.</h1>
+          <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>
       </section>
