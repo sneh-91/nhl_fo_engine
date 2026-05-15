@@ -41,7 +41,7 @@ def build_headers() -> dict[str, str]:
             "CAPWAGES_API_KEY is missing. Add it to .env using .env.example as a template."
         )
 
-    headers["x-api-key"] = api_key
+    headers["Authorization"] = f"ApiKey {api_key}"
 
     return headers
 
