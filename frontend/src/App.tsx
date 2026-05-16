@@ -1189,7 +1189,6 @@ export default function App() {
         <div className="hero-copy">
           <div className="hero-brand">
             <HockeyOpsLogo className="hero-logo" />
-            <p className="hero-tag">Front-office answers grounded in NHL and CapWages data.</p>
           </div>
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
