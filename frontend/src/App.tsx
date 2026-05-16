@@ -366,9 +366,6 @@ function ComparisonView(props: { result: ComparisonResult }) {
         <div>
           <h3>Comparison table</h3>
         </div>
-        <p className="result-meta">
-          {result.player_a.identity.full_name} vs {result.player_b.identity.full_name}
-        </p>
       </div>
 
       <div className="comparison-table-wrap">
@@ -776,6 +773,7 @@ export default function App() {
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>
+        <p className="hero-source-note">Data from NHL API and CapWages</p>
       </section>
 
       <section className="panel">

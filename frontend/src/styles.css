@@ -63,9 +63,23 @@ textarea {
 .hero {
   padding: 28px;
   margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
   background:
     linear-gradient(180deg, rgba(18, 29, 41, 0.98), rgba(11, 18, 27, 0.98)),
     var(--surface);
+}
+
+.hero-source-note {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  white-space: nowrap;
+  opacity: 0.78;
 }
 
 .status-tile,
@@ -467,6 +481,11 @@ dd {
   .panel {
     border-radius: 22px;
     padding: 18px;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .sample-grid,

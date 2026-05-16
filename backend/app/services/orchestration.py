@@ -27,13 +27,18 @@ from .tools import PlayerToolService
 SYSTEM_PROMPT = """
 You are HockeyOps AI v0.5.
 
-You must answer hockey operations questions using backend tools whenever factual player, roster, stat, or contract information is needed.
+You are a hockey-first assistant. Answer NHL and hockey-operations questions directly.
+
+Use backend tools whenever factual player, roster, stat, or contract information is needed.
 
 Hard rules:
 - Do not invent stats, contract terms, clauses, team context, or player facts.
-- Stay inside the current v0.5 scope: NHL API facts and CapWages contract data only.
+- Stay inside the current v0.5 product focus: NHL and hockey topics only.
 - Do not claim advanced analytics, MoneyPuck insights, or strategic team-fit conclusions.
-- If the question is unsupported by the available tools and data, say so plainly.
+- If the question is subjective or evaluative, you may give a clearly labeled hockey opinion or judgment.
+- For subjective questions, use tool-returned facts when helpful, but do not refuse only because there is no single objectively verifiable answer.
+- For broad subjective questions without a stated criterion, answer with your best hockey judgment first, then optionally mention a few factual ways to narrow it.
+- If answer to question depends on facts the tools cannot provide, say what is missing plainly instead of pretending certainty.
 - Use the tool outputs as the source of truth.
 - If the user is comparing two players or asking who had the better season, use compare_players rather than separate summary calls.
 
@@ -44,6 +49,7 @@ Output style:
 - Avoid nested bullets. Prefer short paragraphs or compact plain-text lines.
 - Include explicit limitations when source coverage is incomplete or the question exceeds scope.
 - If comparing or ranking players, base all takeaways only on tool-returned data.
+- If answering with opinion, say it is your view and separate opinion from hard facts.
 - When citing a player's season production, include games played (GP) alongside the scoring line when available.
 - If player games played differ meaningfully, discuss both total production and rate production.
 - Do not treat a tiny total-point edge as decisive without acknowledging the games-played context.
@@ -61,11 +67,15 @@ Mark in_scope true only if the question is about NHL hockey operations topics th
 - NHL contracts, cap hits, AAV, clauses, term
 - NHL player comparisons
 - NHL player discovery/search questions
+- generic hockey questions where the hockey meaning is obvious in context, including subjective prompts like "Who is the best player?" or follow-ups like "What about his contract?"
 
 Mark in_scope false for:
 - non-hockey questions
 - hockey questions outside NHL scope
 - general chat, coding help, math, weather, history, or other unrelated topics
+
+Interpret ambiguous sports wording in a hockey-first way when a reasonable NHL reading exists.
+Only mark false when the question is clearly unrelated to hockey or clearly about another sport/domain.
 
 If false, the message should be brief and user-facing, for example:
 "HockeyOps AI only handles NHL player, roster, and contract questions right now."
@@ -169,21 +179,13 @@ class HockeyOpsOrchestrator:
 
         parsed = self._parse_scope_response(response.output_text)
         if parsed is not None:
+            if parsed["in_scope"]:
+                return parsed
+            if self._looks_hockey_related(question) or not self._looks_clearly_off_topic(question):
+                return {"in_scope": True, "message": "ok"}
             return parsed
 
-        normalized = question.casefold()
-        obvious_off_topic_terms = (
-            "weather",
-            "recipe",
-            "capital of",
-            "python code",
-            "javascript",
-            "stock market",
-            "bitcoin",
-            "movie",
-            "restaurant",
-        )
-        if any(term in normalized for term in obvious_off_topic_terms):
+        if self._looks_clearly_off_topic(question):
             return {
                 "in_scope": False,
                 "message": "HockeyOps AI only handles NHL player, roster, and contract questions right now.",
@@ -206,6 +208,74 @@ class HockeyOpsOrchestrator:
             return None
 
         return {"in_scope": in_scope, "message": message.strip() or "ok"}
+
+    def _looks_hockey_related(self, question: str) -> bool:
+        normalized = question.casefold()
+        hockey_terms = (
+            "nhl",
+            "hockey",
+            "player",
+            "players",
+            "roster",
+            "lineup",
+            "goalie",
+            "goalies",
+            "skater",
+            "skaters",
+            "defenseman",
+            "defenceman",
+            "forward",
+            "forwards",
+            "winger",
+            "center",
+            "centre",
+            "contract",
+            "cap hit",
+            "aav",
+            "trade",
+            "waiver",
+            "free agent",
+            "draft",
+            "prospect",
+            "points",
+            "goals",
+            "assists",
+            "stanley cup",
+        )
+        return any(term in normalized for term in hockey_terms)
+
+    def _looks_clearly_off_topic(self, question: str) -> bool:
+        normalized = question.casefold()
+        obvious_off_topic_terms = (
+            "weather",
+            "recipe",
+            "capital of",
+            "python code",
+            "javascript",
+            "stock market",
+            "bitcoin",
+            "movie",
+            "restaurant",
+            "nba",
+            "nfl",
+            "mlb",
+            "wnba",
+            "soccer",
+            "football",
+            "basketball",
+            "baseball",
+            "tennis",
+            "golf",
+            "formula 1",
+            "f1",
+            "area of a circle",
+            "circle formula",
+            "integral",
+            "derivative",
+            "president of",
+            "prime minister",
+        )
+        return any(term in normalized for term in obvious_off_topic_terms)
 
     def _clean_answer_text(self, raw_text: str) -> str:
         cleaned = raw_text.replace("**", "").replace("__", "").replace("`", "")
