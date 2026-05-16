@@ -8,7 +8,7 @@ from threading import Lock
 from typing import Literal
 
 from ..config import Settings
-from ..models import GoalieAnalytics, MergeNote, MoneyPuckCoverage, SkaterAnalytics
+from ..models import GoalieAnalytics, MergeNote, MoneyPuckCoverage, SkaterAnalytics, TeamAnalytics
 
 
 def _parse_int(value: str | None) -> int | None:
@@ -41,9 +41,11 @@ def _season_label(season_type: Literal["regular_season", "playoffs"]) -> str:
 
 @dataclass
 class MoneyPuckSnapshot:
-    coverage: MoneyPuckCoverage
+    player_coverage: MoneyPuckCoverage
+    team_coverage: MoneyPuckCoverage
     skaters: dict[int, SkaterAnalytics] = field(default_factory=dict)
     goalies: dict[int, GoalieAnalytics] = field(default_factory=dict)
+    teams: dict[str, TeamAnalytics] = field(default_factory=dict)
 
 
 class MoneyPuckService:
@@ -71,7 +73,20 @@ class MoneyPuckService:
         self,
         season_type: Literal["regular_season", "playoffs"] = "regular_season",
     ) -> MoneyPuckCoverage:
-        return self._get_snapshot(season_type).coverage.model_copy(deep=True)
+        return self._get_snapshot(season_type).player_coverage.model_copy(deep=True)
+
+    def get_team_analytics(
+        self,
+        team_abbrev: str,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> TeamAnalytics | None:
+        return self._get_snapshot(season_type).teams.get(team_abbrev.strip().upper())
+
+    def get_team_coverage(
+        self,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> MoneyPuckCoverage:
+        return self._get_snapshot(season_type).team_coverage.model_copy(deep=True)
 
     def refresh(
         self,
@@ -97,45 +112,61 @@ class MoneyPuckService:
             return cached_snapshot
 
     def _load_snapshot(self, season_type: Literal["regular_season", "playoffs"]) -> MoneyPuckSnapshot:
-        coverage = MoneyPuckCoverage(
+        player_coverage = MoneyPuckCoverage(
+            available=False,
+            season_id=2025,
+            season_type=season_type,
+            situation="all",
+        )
+        team_coverage = MoneyPuckCoverage(
             available=False,
             season_id=2025,
             season_type=season_type,
             situation="all",
         )
         if not self._settings.moneypuck_enabled:
-            coverage.notes.append(
-                MergeNote(
-                    code="moneypuck_disabled",
-                    detail="MoneyPuck analytics are disabled in settings.",
-                )
+            disabled_note = MergeNote(
+                code="moneypuck_disabled",
+                detail="MoneyPuck analytics are disabled in settings.",
             )
-            return MoneyPuckSnapshot(coverage=coverage)
+            player_coverage.notes.append(disabled_note)
+            team_coverage.notes.append(disabled_note.model_copy(deep=True))
+            return MoneyPuckSnapshot(
+                player_coverage=player_coverage,
+                team_coverage=team_coverage,
+            )
 
-        skater_path, goalie_path = self._paths_for_season_type(season_type)
+        skater_path, goalie_path, team_path = self._paths_for_season_type(season_type)
         skaters, skater_notes = self._load_skaters(skater_path, season_type)
         goalies, goalie_notes = self._load_goalies(goalie_path, season_type)
-        coverage.available = bool(skaters or goalies)
-        coverage.notes.extend(skater_notes)
-        coverage.notes.extend(goalie_notes)
+        teams, team_notes = self._load_teams(team_path, season_type)
+        player_coverage.available = bool(skaters or goalies)
+        player_coverage.notes.extend(skater_notes)
+        player_coverage.notes.extend(goalie_notes)
+        team_coverage.available = bool(teams)
+        team_coverage.notes.extend(team_notes)
         return MoneyPuckSnapshot(
-            coverage=coverage,
+            player_coverage=player_coverage,
+            team_coverage=team_coverage,
             skaters=skaters,
             goalies=goalies,
+            teams=teams,
         )
 
     def _paths_for_season_type(
         self,
         season_type: Literal["regular_season", "playoffs"],
-    ) -> tuple[Path, Path]:
+    ) -> tuple[Path, Path, Path]:
         if season_type == "playoffs":
             return (
                 self._settings.moneypuck_2025_playoff_skaters_path,
                 self._settings.moneypuck_2025_playoff_goalies_path,
+                self._settings.moneypuck_2025_playoff_teams_path,
             )
         return (
             self._settings.moneypuck_2025_regular_skaters_path,
             self._settings.moneypuck_2025_regular_goalies_path,
+            self._settings.moneypuck_2025_regular_teams_path,
         )
 
     def _load_skaters(
@@ -262,3 +293,90 @@ class MoneyPuckService:
                 )
             )
         return analytics_by_player, notes
+
+    def _load_teams(
+        self,
+        path: Path,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> tuple[dict[str, TeamAnalytics], list[MergeNote]]:
+        notes: list[MergeNote] = []
+        if not path.exists():
+            notes.append(
+                MergeNote(
+                    code="moneypuck_teams_missing",
+                    detail=f"MoneyPuck {_season_label(season_type)} team file was not found at {path}.",
+                )
+            )
+            return {}, notes
+
+        try:
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                analytics_by_team: dict[str, TeamAnalytics] = {}
+                for row in reader:
+                    if row.get("situation") != "all":
+                        continue
+                    if str(row.get("position") or "").strip() != "Team Level":
+                        continue
+
+                    team_abbrev = str(row.get("team") or "").strip().upper()
+                    if not team_abbrev:
+                        continue
+
+                    goals_for = _parse_int(row.get("goalsFor"))
+                    goals_against = _parse_int(row.get("goalsAgainst"))
+                    shots_on_goal_for = _parse_float(row.get("shotsOnGoalFor"))
+                    shots_on_goal_against = _parse_float(row.get("shotsOnGoalAgainst"))
+                    saved_shots_on_goal_against = _parse_float(row.get("savedShotsOnGoalAgainst"))
+
+                    goals_for_pct = None
+                    if (
+                        goals_for is not None
+                        and goals_against is not None
+                        and (goals_for + goals_against) > 0
+                    ):
+                        goals_for_pct = round(goals_for / (goals_for + goals_against), 6)
+
+                    pdo = None
+                    if (
+                        goals_for is not None
+                        and shots_on_goal_for is not None
+                        and shots_on_goal_against is not None
+                        and saved_shots_on_goal_against is not None
+                        and shots_on_goal_for > 0
+                        and shots_on_goal_against > 0
+                    ):
+                        shooting_pct = goals_for / shots_on_goal_for
+                        save_pct = saved_shots_on_goal_against / shots_on_goal_against
+                        pdo = round(shooting_pct + save_pct, 6)
+
+                    analytics_by_team[team_abbrev] = TeamAnalytics(
+                        season_id=_parse_int(row.get("season")),
+                        season_type=season_type,
+                        team_abbrev=team_abbrev,
+                        situation="all",
+                        games_played=_parse_int(row.get("games_played")),
+                        goals_for=goals_for,
+                        goals_against=goals_against,
+                        goals_for_pct=goals_for_pct,
+                        expected_goals_for_pct=_parse_float(row.get("xGoalsPercentage")),
+                        corsi_pct=_parse_float(row.get("corsiPercentage")),
+                        pdo=pdo,
+                    )
+        except (OSError, csv.Error) as error:
+            notes.append(
+                MergeNote(
+                    code="moneypuck_teams_parse_error",
+                    detail=f"MoneyPuck {_season_label(season_type)} team file could not be parsed: {error}",
+                )
+            )
+            return {}, notes
+
+        if not analytics_by_team:
+            notes.append(
+                MergeNote(
+                    code="moneypuck_teams_empty",
+                    detail=f"MoneyPuck {_season_label(season_type)} team file loaded but no team-level 'all' rows were found.",
+                )
+            )
+        return analytics_by_team, notes

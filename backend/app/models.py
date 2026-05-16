@@ -85,6 +85,37 @@ class NormalizedPlayer(BaseModel):
     source_coverage: SourceCoverage
 
 
+class TeamSourceCoverage(BaseModel):
+    nhl_available: bool = False
+    notes: list[MergeNote] = Field(default_factory=list)
+
+
+class TeamIdentity(BaseModel):
+    team_abbrev: str
+    team_name: str | None = None
+    team_id: int | None = None
+    team_logo_url: str | None = None
+
+
+class TeamStats(BaseModel):
+    season_id: int | None = None
+    season_type: Literal["regular_season", "playoffs"] | None = None
+    games_played: int | None = None
+    wins: int | None = None
+    losses: int | None = None
+    ot_losses: int | None = None
+    points: int | None = None
+    points_pct: float | None = None
+    goals_for: int | None = None
+    goals_against: int | None = None
+    power_play_pct: float | None = None
+    penalty_kill_pct: float | None = None
+    goals_for_pct: float | None = None
+    expected_goals_for_pct: float | None = None
+    corsi_pct: float | None = None
+    pdo: float | None = None
+
+
 class SkaterAnalytics(BaseModel):
     season_id: int | None = None
     situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
@@ -98,6 +129,20 @@ class GoalieAnalytics(BaseModel):
     situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
     goals_saved_above_expected: float | None = None
     goals_saved_above_expected_per_60: float | None = None
+
+
+class TeamAnalytics(BaseModel):
+    season_id: int | None = None
+    season_type: Literal["regular_season", "playoffs"] | None = None
+    team_abbrev: str | None = None
+    situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
+    games_played: int | None = None
+    goals_for: int | None = None
+    goals_against: int | None = None
+    goals_for_pct: float | None = None
+    expected_goals_for_pct: float | None = None
+    corsi_pct: float | None = None
+    pdo: float | None = None
 
 
 class MoneyPuckCoverage(BaseModel):
@@ -202,6 +247,14 @@ class ToolPlayerData(BaseModel):
     source_coverage: SourceCoverage
 
 
+class ToolTeamData(BaseModel):
+    identity: TeamIdentity
+    stats: TeamStats = Field(default_factory=TeamStats)
+    moneypuck_analytics: TeamAnalytics | None = None
+    source_coverage: TeamSourceCoverage = Field(default_factory=TeamSourceCoverage)
+    moneypuck_coverage: MoneyPuckCoverage = Field(default_factory=MoneyPuckCoverage)
+
+
 class PlayerToolQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -298,6 +351,11 @@ class PlayerSearchResult(BaseModel):
     filters: PlayerSearchFilters
     total_matches: int
     players: list[ToolPlayerData] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
+class TeamSummaryDataResult(BaseModel):
+    team: ToolTeamData
     limitations: list[str] = Field(default_factory=list)
 
 
