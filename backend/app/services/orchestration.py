@@ -45,6 +45,10 @@ Hard rules:
 - Do not invent MoneyPuck metrics beyond the supported player fields in the tool output.
 - Team-level MoneyPuck stat fields are supported only through the tool-returned fields that are actually present.
 - Do not claim manual team context, strategy posture, or team-fit context that is not in the tool output.
+- Manual team context may be available inside get_team_summary_data as team_context.
+- Use team_context for team posture, buyer/seller stance, contention status, strengths, needs, cap posture, prospect pipeline, core age, goalie outlook, and roster-building questions.
+- Treat team_context as manually maintained current-season guidance, not as an official NHL or MoneyPuck fact source.
+- If team_context is missing, say that team-strategy context is unavailable instead of inventing it.
 - If the question is subjective or evaluative, you may give a clearly labeled hockey opinion or judgment.
 - For subjective questions, use tool-returned facts when helpful, but do not refuse only because there is no single objectively verifiable answer.
 - For broad subjective questions without a stated criterion, answer with your best hockey judgment first, then optionally mention a few factual ways to narrow it.
@@ -81,7 +85,7 @@ Output style:
 - If team data is missing a field for the requested season context, say that plainly instead of inventing it.
 - If player games played differ meaningfully, discuss both total production and rate production.
 - Do not treat a tiny total-point edge as decisive without acknowledging the games-played context.
-- For team answers, keep traditional results and underlying metrics distinct.
+- For team answers, keep traditional results, underlying metrics, and manual team context distinct.
 """.strip()
 
 SCOPE_CLASSIFIER_PROMPT = """
@@ -392,8 +396,9 @@ class HockeyOpsOrchestrator:
                 "type": "function",
                 "name": "get_team_summary_data",
                 "description": (
-                    "Fetch one NHL team summary with season-context-aware team stats and local MoneyPuck team analytics when available. "
+                    "Fetch one NHL team summary with season-context-aware team stats, local MoneyPuck team analytics, and manual team context when available. "
                     "Use this for factual team-stat questions about wins, losses, points, goals for/against, special teams, and underlying team metrics. "
+                    "Also use this for team-direction, buyer/seller, contention, roster strengths, roster needs, cap posture, prospect pipeline, core age, and goalie outlook questions. "
                     "For playoffs, rely only on the playoff fields actually returned by the tool."
                 ),
                 "strict": True,
