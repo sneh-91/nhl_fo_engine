@@ -139,6 +139,8 @@ class TeamAnalytics(BaseModel):
     games_played: int | None = None
     goals_for: int | None = None
     goals_against: int | None = None
+    power_play_pct: float | None = None
+    penalty_kill_pct: float | None = None
     goals_for_pct: float | None = None
     expected_goals_for_pct: float | None = None
     corsi_pct: float | None = None
@@ -266,6 +268,20 @@ class PlayerToolQuery(BaseModel):
     def validate_identifier(self) -> "PlayerToolQuery":
         if self.player is None and self.nhl_id is None:
             raise ValueError("Either player or nhl_id must be provided.")
+        return self
+
+
+class TeamToolQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    team: str
+    season_type: Literal["regular_season", "playoffs"] = "regular_season"
+
+    @model_validator(mode="after")
+    def validate_team(self) -> "TeamToolQuery":
+        self.team = self.team.strip()
+        if not self.team:
+            raise ValueError("Team must not be empty.")
         return self
 
 

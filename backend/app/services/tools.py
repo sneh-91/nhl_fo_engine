@@ -33,12 +33,19 @@ from ..models import (
     SkaterLeaderboardEntry,
     SkaterLeaderboardQuery,
     SkaterLeaderboardResult,
+    TeamSummaryDataResult,
+    TeamToolQuery,
     PlayerToolQuery,
     RecentForm,
     SourceCoverage,
     SkaterAnalytics,
     SkaterStats,
+    TeamAnalytics,
+    TeamIdentity,
+    TeamSourceCoverage,
+    TeamStats,
     ToolPlayerData,
+    ToolTeamData,
 )
 from .moneypuck import MoneyPuckService
 from .normalization import PlayerNormalizer
@@ -80,6 +87,16 @@ class LeagueRosterPlayer:
     position: str
     shoots_catches: str | None
     birth_date: str | None
+
+
+@dataclass(frozen=True)
+class LeagueTeam:
+    team_abbrev: str
+    team_name: str
+    team_common_name: str | None
+    place_name: str | None
+    team_logo: str | None
+    standings_row: dict[str, Any]
 
 
 def _normalize_text(value: str) -> str:
@@ -172,6 +189,7 @@ class PlayerToolService:
         self._landing_cache = TTLCache()
         self._tool_player_cache = TTLCache()
         self._leaderboard_cache = TTLCache()
+        self._team_cache = TTLCache()
 
     async def get_player_profile(self, query: PlayerToolQuery) -> PlayerProfileToolResult:
         landing = await self._get_landing_for_query(query)
@@ -216,6 +234,13 @@ class PlayerToolService:
         return PlayerSummaryDataResult(
             player=tool_player,
             limitations=self._shared_limitations(),
+        )
+
+    async def get_team_summary_data(self, query: TeamToolQuery) -> TeamSummaryDataResult:
+        tool_team = await self.get_tool_team_data(query.team, query.season_type)
+        return TeamSummaryDataResult(
+            team=tool_team,
+            limitations=self._shared_team_limitations(query.season_type),
         )
 
     async def search_players(self, filters: PlayerSearchFilters) -> PlayerSearchResult:
@@ -362,6 +387,14 @@ class PlayerToolService:
             ],
         )
 
+    async def get_tool_team_data(
+        self,
+        team_query: str,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> ToolTeamData:
+        team = await self._resolve_team(team_query)
+        return await self._build_tool_team_data(team, season_type)
+
     async def _with_limit(self, coroutine):
         async with self._semaphore:
             return await coroutine
@@ -389,6 +422,110 @@ class PlayerToolService:
 
         payload = await self._with_limit(self._nhl_client.get_goalie_stats_leaders(season_id, game_type_id))
         self._leaderboard_cache.set(cache_key, payload, self._settings.player_cache_ttl_seconds)
+        return payload
+
+    async def _get_standings_payload(self) -> dict:
+        cached = self._team_cache.get("standings_payload")
+        if cached is not None:
+            return cached
+
+        payload = await self._with_limit(self._nhl_client.get_standings())
+        self._team_cache.set("standings_payload", payload, self._settings.roster_cache_ttl_seconds)
+        return payload
+
+    async def _get_league_teams(self) -> list[LeagueTeam]:
+        cached = self._team_cache.get("league_teams")
+        if cached is not None:
+            return cached
+
+        standings = await self._get_standings_payload()
+        teams: list[LeagueTeam] = []
+        for row in standings.get("standings", []):
+            team_abbrev = _default_text(row.get("teamAbbrev"))
+            team_name = _default_text(row.get("teamName"))
+            if not team_abbrev or not team_name:
+                continue
+
+            teams.append(
+                LeagueTeam(
+                    team_abbrev=team_abbrev,
+                    team_name=team_name,
+                    team_common_name=_default_text(row.get("teamCommonName")),
+                    place_name=_default_text(row.get("placeName")),
+                    team_logo=str(row.get("teamLogo") or "") or None,
+                    standings_row=row,
+                )
+            )
+
+        self._team_cache.set("league_teams", teams, self._settings.roster_cache_ttl_seconds)
+        return teams
+
+    async def _resolve_team(self, query: str) -> LeagueTeam:
+        teams = await self._get_league_teams()
+        normalized_query = _normalize_text(query.replace("-", " "))
+
+        def aliases(team: LeagueTeam) -> set[str]:
+            values = {
+                team.team_abbrev.casefold(),
+                _normalize_text(team.team_name),
+            }
+            if team.team_common_name:
+                values.add(_normalize_text(team.team_common_name))
+            if team.place_name:
+                values.add(_normalize_text(team.place_name))
+                if team.team_common_name:
+                    values.add(_normalize_text(f"{team.place_name} {team.team_common_name}"))
+            return {value for value in values if value}
+
+        exact_matches = [team for team in teams if normalized_query in aliases(team)]
+        if len(exact_matches) == 1:
+            return exact_matches[0]
+        if len(exact_matches) > 1:
+            raise AmbiguousPlayerError(
+                f"Multiple NHL teams matched '{query}': "
+                + ", ".join(team.team_name for team in exact_matches[:4])
+            )
+
+        partial_matches = [
+            team
+            for team in teams
+            if any(
+                normalized_query in alias or alias in normalized_query
+                for alias in aliases(team)
+            )
+        ]
+        if len(partial_matches) == 1:
+            return partial_matches[0]
+        if len(partial_matches) > 1:
+            raise AmbiguousPlayerError(
+                f"Multiple NHL teams matched '{query}': "
+                + ", ".join(team.team_name for team in partial_matches[:4])
+            )
+
+        raise PlayerNotFoundError(f"No NHL team matched '{query}'.")
+
+    async def _get_club_stats_payload(
+        self,
+        team_abbrev: str,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> dict:
+        cache_key = f"club_stats:{team_abbrev}:{season_type}"
+        cached = self._team_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if season_type == "playoffs":
+            payload = await self._with_limit(
+                self._nhl_client.get_club_stats_for_season(
+                    team_abbrev,
+                    self._current_nhl_season_id(),
+                    3,
+                )
+            )
+        else:
+            payload = await self._with_limit(self._nhl_client.get_club_stats(team_abbrev))
+
+        self._team_cache.set(cache_key, payload, self._settings.player_cache_ttl_seconds)
         return payload
 
     async def _get_league_roster(self) -> list[LeagueRosterPlayer]:
@@ -539,6 +676,116 @@ class PlayerToolService:
             if error.status_code == 404:
                 return None
             raise
+
+    async def _build_tool_team_data(
+        self,
+        team: LeagueTeam,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> ToolTeamData:
+        source_coverage = TeamSourceCoverage(nhl_available=True)
+        moneypuck_analytics = self._moneypuck_service.get_team_analytics(team.team_abbrev, season_type)
+        moneypuck_coverage = self._build_team_moneypuck_coverage(team.team_abbrev, season_type)
+
+        if season_type == "playoffs":
+            club_stats = await self._get_club_stats_payload(team.team_abbrev, season_type)
+            stats = self._build_playoff_team_stats(club_stats, moneypuck_analytics)
+        else:
+            stats = self._build_regular_season_team_stats(team, moneypuck_analytics)
+
+        return ToolTeamData(
+            identity=TeamIdentity(
+                team_abbrev=team.team_abbrev,
+                team_name=team.team_name,
+                team_logo_url=team.team_logo,
+            ),
+            stats=stats,
+            moneypuck_analytics=moneypuck_analytics,
+            source_coverage=source_coverage,
+            moneypuck_coverage=moneypuck_coverage,
+        )
+
+    def _build_team_moneypuck_coverage(
+        self,
+        team_abbrev: str,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> MoneyPuckCoverage:
+        coverage = self._moneypuck_service.get_team_coverage(season_type)
+        analytics = self._moneypuck_service.get_team_analytics(team_abbrev, season_type)
+        if coverage.available and analytics is None:
+            season_label = "regular-season" if season_type == "regular_season" else "playoff"
+            coverage.notes.append(
+                MergeNote(
+                    code="missing_moneypuck_team_coverage",
+                    detail=f"No MoneyPuck analytics row was found for team {team_abbrev} in the local 2025-26 {season_label} files.",
+                )
+            )
+        return coverage
+
+    def _build_regular_season_team_stats(
+        self,
+        team: LeagueTeam,
+        analytics: TeamAnalytics | None,
+    ) -> TeamStats:
+        row = team.standings_row
+        return TeamStats(
+            season_id=row.get("seasonId") if isinstance(row.get("seasonId"), int) else None,
+            season_type="regular_season",
+            games_played=row.get("gamesPlayed") if isinstance(row.get("gamesPlayed"), int) else None,
+            wins=row.get("wins") if isinstance(row.get("wins"), int) else None,
+            losses=row.get("losses") if isinstance(row.get("losses"), int) else None,
+            ot_losses=row.get("otLosses") if isinstance(row.get("otLosses"), int) else None,
+            points=row.get("points") if isinstance(row.get("points"), int) else None,
+            points_pct=float(row.get("pointPctg")) if isinstance(row.get("pointPctg"), (int, float)) else None,
+            goals_for=row.get("goalFor") if isinstance(row.get("goalFor"), int) else None,
+            goals_against=row.get("goalAgainst") if isinstance(row.get("goalAgainst"), int) else None,
+            power_play_pct=analytics.power_play_pct if analytics is not None else None,
+            penalty_kill_pct=analytics.penalty_kill_pct if analytics is not None else None,
+            goals_for_pct=analytics.goals_for_pct if analytics is not None else None,
+            expected_goals_for_pct=analytics.expected_goals_for_pct if analytics is not None else None,
+            corsi_pct=analytics.corsi_pct if analytics is not None else None,
+            pdo=analytics.pdo if analytics is not None else None,
+        )
+
+    def _build_playoff_team_stats(
+        self,
+        club_stats: dict,
+        analytics: TeamAnalytics | None,
+    ) -> TeamStats:
+        goalie_rows = club_stats.get("goalies", []) if isinstance(club_stats.get("goalies"), list) else []
+        wins = 0
+        losses = 0
+        wins_found = False
+        losses_found = False
+
+        for goalie in goalie_rows:
+            if not isinstance(goalie, dict):
+                continue
+            goalie_wins = goalie.get("wins")
+            goalie_losses = goalie.get("losses")
+            if isinstance(goalie_wins, int):
+                wins += goalie_wins
+                wins_found = True
+            if isinstance(goalie_losses, int):
+                losses += goalie_losses
+                losses_found = True
+
+        season_raw = club_stats.get("season")
+        season_id = int(season_raw) if isinstance(season_raw, str) and season_raw.isdigit() else None
+        return TeamStats(
+            season_id=season_id,
+            season_type="playoffs",
+            games_played=analytics.games_played if analytics is not None else None,
+            wins=wins if wins_found else None,
+            losses=losses if losses_found else None,
+            goals_for=analytics.goals_for if analytics is not None else None,
+            goals_against=analytics.goals_against if analytics is not None else None,
+            power_play_pct=analytics.power_play_pct if analytics is not None else None,
+            penalty_kill_pct=analytics.penalty_kill_pct if analytics is not None else None,
+            goals_for_pct=analytics.goals_for_pct if analytics is not None else None,
+            expected_goals_for_pct=analytics.expected_goals_for_pct if analytics is not None else None,
+            corsi_pct=analytics.corsi_pct if analytics is not None else None,
+            pdo=analytics.pdo if analytics is not None else None,
+        )
 
     def _build_tool_player_data(
         self,
@@ -1371,3 +1618,17 @@ class PlayerToolService:
             "Outputs are grounded only in NHL API data, CapWages contract data, and local MoneyPuck player analytics when available.",
             "Broader advanced analytics and team-context reasoning are not part of the current build.",
         ]
+
+    def _shared_team_limitations(
+        self,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> list[str]:
+        limitations = [
+            "Team outputs are grounded only in NHL API team data and local MoneyPuck team analytics when available.",
+            "Manual team-context guidance is not part of the current build.",
+        ]
+        if season_type == "playoffs":
+            limitations.append(
+                "Playoff team outputs omit standings-only fields that are not meaningful or supported in that context."
+            )
+        return limitations

@@ -311,16 +311,20 @@ class MoneyPuckService:
 
         try:
             with path.open("r", encoding="utf-8", newline="") as handle:
-                reader = csv.DictReader(handle)
+                rows = list(csv.DictReader(handle))
                 analytics_by_team: dict[str, TeamAnalytics] = {}
-                for row in reader:
-                    if row.get("situation") != "all":
-                        continue
+                team_rows: dict[tuple[str, str], dict[str, str]] = {}
+                for row in rows:
                     if str(row.get("position") or "").strip() != "Team Level":
                         continue
-
                     team_abbrev = str(row.get("team") or "").strip().upper()
-                    if not team_abbrev:
+                    situation = str(row.get("situation") or "").strip()
+                    if not team_abbrev or not situation:
+                        continue
+                    team_rows[(team_abbrev, situation)] = row
+
+                for (team_abbrev, situation), row in team_rows.items():
+                    if situation != "all":
                         continue
 
                     goals_for = _parse_int(row.get("goalsFor"))
@@ -328,6 +332,11 @@ class MoneyPuckService:
                     shots_on_goal_for = _parse_float(row.get("shotsOnGoalFor"))
                     shots_on_goal_against = _parse_float(row.get("shotsOnGoalAgainst"))
                     saved_shots_on_goal_against = _parse_float(row.get("savedShotsOnGoalAgainst"))
+                    penalties_for = _parse_int(row.get("penaltiesFor"))
+                    penalties_against = _parse_int(row.get("penaltiesAgainst"))
+
+                    power_play_row = team_rows.get((team_abbrev, "5on4"))
+                    penalty_kill_row = team_rows.get((team_abbrev, "4on5"))
 
                     goals_for_pct = None
                     if (
@@ -350,6 +359,18 @@ class MoneyPuckService:
                         save_pct = saved_shots_on_goal_against / shots_on_goal_against
                         pdo = round(shooting_pct + save_pct, 6)
 
+                    power_play_pct = None
+                    if power_play_row is not None and penalties_for is not None and penalties_for > 0:
+                        power_play_goals = _parse_int(power_play_row.get("goalsFor"))
+                        if power_play_goals is not None:
+                            power_play_pct = round(power_play_goals / penalties_for, 6)
+
+                    penalty_kill_pct = None
+                    if penalty_kill_row is not None and penalties_against is not None and penalties_against > 0:
+                        power_play_goals_against = _parse_int(penalty_kill_row.get("goalsAgainst"))
+                        if power_play_goals_against is not None:
+                            penalty_kill_pct = round(1 - (power_play_goals_against / penalties_against), 6)
+
                     analytics_by_team[team_abbrev] = TeamAnalytics(
                         season_id=_parse_int(row.get("season")),
                         season_type=season_type,
@@ -358,6 +379,8 @@ class MoneyPuckService:
                         games_played=_parse_int(row.get("games_played")),
                         goals_for=goals_for,
                         goals_against=goals_against,
+                        power_play_pct=power_play_pct,
+                        penalty_kill_pct=penalty_kill_pct,
                         goals_for_pct=goals_for_pct,
                         expected_goals_for_pct=_parse_float(row.get("xGoalsPercentage")),
                         corsi_pct=_parse_float(row.get("corsiPercentage")),
