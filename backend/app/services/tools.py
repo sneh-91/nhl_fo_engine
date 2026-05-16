@@ -1624,8 +1624,7 @@ class PlayerToolService:
         season_type: Literal["regular_season", "playoffs"],
     ) -> list[str]:
         limitations = [
-            "Team outputs are grounded only in NHL API team data and local MoneyPuck team analytics when available.",
-            "Manual team-context guidance is not part of the current build.",
+            "Based on 2025-26 NHL regular season data."
         ]
         if season_type == "playoffs":
             limitations.append(

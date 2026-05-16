@@ -314,10 +314,11 @@ type AskQuestionResponse = {
 };
 
 const sampleQuestions = [
-  "Compare Aaron Ekblad vs Brandon Carlo",
+  "Compare Sidney Crosby Vs Alex Ovechkin",
   "Find right-shot defensemen on Florida under 7 million AAV",
-  "Show Mitch Marner details",
+  "Show Auston Matthews Stats.",
   "Who are left-shot defensemen on Toronto with at least 20 points?",
+  "Were the Toronto Maple Leafs good this year?"
 ];
 
 const hiddenLimitationPills = new Set([
@@ -1460,6 +1461,8 @@ export default function App() {
 
       {result ? (
         <>
+          <ToolTrace toolInvocations={result.support_data.tool_invocations} />
+
           <section className="panel answer-panel">
             <div className="panel-header">
               <div>
@@ -1479,8 +1482,6 @@ export default function App() {
               </div>
             ) : null}
           </section>
-
-          <ToolTrace toolInvocations={result.support_data.tool_invocations} />
         </>
       ) : null}
     </main>

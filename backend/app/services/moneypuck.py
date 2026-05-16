@@ -357,7 +357,7 @@ class MoneyPuckService:
                     ):
                         shooting_pct = goals_for / shots_on_goal_for
                         save_pct = saved_shots_on_goal_against / shots_on_goal_against
-                        pdo = round(shooting_pct + save_pct, 6)
+                        pdo = round(shooting_pct + save_pct, 6) * 100.0
 
                     power_play_pct = None
                     if power_play_row is not None and penalties_for is not None and penalties_for > 0:
