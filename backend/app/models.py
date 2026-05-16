@@ -551,6 +551,11 @@ class GoalieLeaderboardQuery(BaseModel):
     limit: int = Field(default=10, ge=1, le=50)
 
 
+class ExecutedToolResult(BaseModel):
+    model_output: dict[str, Any]
+    support_output: dict[str, Any]
+
+
 class ToolInvocationRecord(BaseModel):
     tool_name: str
     arguments: dict[str, Any]

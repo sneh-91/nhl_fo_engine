@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
@@ -15,6 +16,7 @@ from ..errors import (
     UpstreamRequestError,
 )
 from ..models import (
+    ExecutedToolResult,
     GoalieLeaderboardQuery,
     OrchestratedAnswerResult,
     PlayerComparisonQuery,
@@ -156,20 +158,20 @@ class HockeyOpsOrchestrator:
 
             input_items.extend(response.output)
             for tool_call in function_calls:
-                tool_output = await self._execute_tool_call(tool_call.name, tool_call.arguments)
+                executed_tool = await self._execute_tool_call(tool_call.name, tool_call.arguments)
                 tool_invocations.append(
                     ToolInvocationRecord(
                         tool_name=tool_call.name,
                         arguments=json.loads(tool_call.arguments),
-                        output=tool_output,
+                        output=executed_tool.support_output,
                     )
                 )
-                limitations.extend(self._collect_limitations(tool_output))
+                limitations.extend(self._collect_limitations(executed_tool.support_output))
                 input_items.append(
                     {
                         "type": "function_call_output",
                         "call_id": tool_call.call_id,
-                        "output": json.dumps(tool_output),
+                        "output": json.dumps(executed_tool.model_output),
                     }
                 )
 
@@ -591,40 +593,47 @@ class HockeyOpsOrchestrator:
             ],
         }
 
-    async def _execute_tool_call(self, name: str, raw_arguments: str) -> dict[str, Any]:
+    def _executed_tool_result(self, output: dict[str, Any]) -> ExecutedToolResult:
+        return ExecutedToolResult(
+            model_output=output,
+            support_output=output,
+        )
+
+    async def _execute_tool_call(self, name: str, raw_arguments: str) -> ExecutedToolResult:
         arguments = json.loads(raw_arguments)
         try:
             if name == "get_skater_leaderboard":
                 result = await self._tool_service.get_skater_leaderboard(
                     SkaterLeaderboardQuery.model_validate(arguments)
                 )
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "get_goalie_leaderboard":
                 result = await self._tool_service.get_goalie_leaderboard(
                     GoalieLeaderboardQuery.model_validate(arguments)
                 )
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "search_players":
                 result = await self._tool_service.search_players(PlayerSearchFilters.model_validate(arguments))
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "get_player_profile":
                 result = await self._tool_service.get_player_profile(PlayerToolQuery.model_validate(arguments))
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "get_player_contract":
                 result = await self._tool_service.get_player_contract(PlayerToolQuery.model_validate(arguments))
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "get_player_summary_data":
                 result = await self._tool_service.get_player_summary_data(PlayerToolQuery.model_validate(arguments))
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
             if name == "get_team_summary_data":
                 result = await self._tool_service.get_team_summary_data(TeamToolQuery.model_validate(arguments))
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                support_output = {"ok": True, "result": result.model_dump(mode="json")}
+                return self._with_team_context_model_output(support_output)
 
             if name == "compare_players":
                 query = PlayerComparisonQuery.model_validate(arguments)
@@ -633,15 +642,17 @@ class HockeyOpsOrchestrator:
                     PlayerToolQuery(player=query.player_b, nhl_id=query.player_b_nhl_id),
                     query.season_type,
                 )
-                return {"ok": True, "result": result.model_dump(mode="json")}
+                return self._executed_tool_result({"ok": True, "result": result.model_dump(mode="json")})
 
-            return {
-                "ok": False,
-                "error": {
-                    "type": "unknown_tool",
-                    "message": f"Tool '{name}' is not registered.",
-                },
-            }
+            return self._executed_tool_result(
+                {
+                    "ok": False,
+                    "error": {
+                        "type": "unknown_tool",
+                        "message": f"Tool '{name}' is not registered.",
+                    },
+                }
+            )
         except (
             PlayerNotFoundError,
             AmbiguousPlayerError,
@@ -650,13 +661,40 @@ class HockeyOpsOrchestrator:
             MissingConfigurationError,
             ValueError,
         ) as error:
-            return {
-                "ok": False,
-                "error": {
-                    "type": type(error).__name__,
-                    "message": str(error),
-                },
-            }
+            return self._executed_tool_result(
+                {
+                    "ok": False,
+                    "error": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                    },
+                }
+            )
+
+    def _with_team_context_model_output(self, support_output: dict[str, Any]) -> ExecutedToolResult:
+        model_output = copy.deepcopy(support_output)
+        team = model_output.get("result", {}).get("team")
+        if not isinstance(team, dict):
+            return ExecutedToolResult(
+                model_output=model_output,
+                support_output=support_output,
+            )
+
+        identity = team.get("identity")
+        team_abbrev = identity.get("team_abbrev") if isinstance(identity, dict) else None
+        if not isinstance(team_abbrev, str):
+            team["team_context"] = None
+            return ExecutedToolResult(
+                model_output=model_output,
+                support_output=support_output,
+            )
+
+        context = self._team_context_service.get_context(team_abbrev)
+        team["team_context"] = context.model_dump(mode="json") if context is not None else None
+        return ExecutedToolResult(
+            model_output=model_output,
+            support_output=support_output,
+        )
 
     def _collect_limitations(self, tool_output: dict[str, Any]) -> list[str]:
         collected: list[str] = []
