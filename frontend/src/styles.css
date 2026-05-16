@@ -72,6 +72,26 @@ textarea {
     var(--surface);
 }
 
+.hero-brand {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hero-logo {
+  width: min(100%, 300px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.26));
+}
+
+.hero-tag {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  max-width: 52ch;
+}
+
 .hero-source-note {
   margin: 0;
   font-size: 0.75rem;
@@ -486,6 +506,14 @@ dd {
   .hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .hero-brand {
+    gap: 10px;
+  }
+
+  .hero-logo {
+    width: min(100%, 240px);
   }
 
   .sample-grid,

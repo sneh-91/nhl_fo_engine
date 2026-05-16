@@ -1,5 +1,6 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { apiBaseUrl } from "./config";
+import { HockeyOpsLogo } from "./components/HockeyOpsLogo";
 
 type HealthResponse = {
   status: string;
@@ -1042,7 +1043,10 @@ export default function App() {
     <main className="app-shell">
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">HockeyOps AI</p>
+          <div className="hero-brand">
+            <HockeyOpsLogo className="hero-logo" />
+            <p className="hero-tag">Front-office answers grounded in NHL and CapWages data.</p>
+          </div>
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>

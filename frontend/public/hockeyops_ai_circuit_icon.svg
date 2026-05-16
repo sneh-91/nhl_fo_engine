@@ -1,0 +1,65 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>HockeyOps AI Circuit Icon</title>
+  <desc>Minimal hockey rink with AI circuit styling for HockeyOps AI.</desc>
+
+  <!-- Transparent background -->
+
+  <!-- Circuit traces top -->
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M170 94H206V132" stroke="#9FB0C3" stroke-width="8"/>
+    <path d="M256 72V132" stroke="#7EC8FF" stroke-width="8"/>
+    <path d="M342 94H306V132" stroke="#9FB0C3" stroke-width="8"/>
+    <circle cx="170" cy="94" r="10" fill="#0A1118" stroke="#9FB0C3" stroke-width="8"/>
+    <circle cx="256" cy="72" r="10" fill="#0A1118" stroke="#7EC8FF" stroke-width="8"/>
+    <circle cx="342" cy="94" r="10" fill="#0A1118" stroke="#9FB0C3" stroke-width="8"/>
+  </g>
+
+  <!-- Circuit traces bottom -->
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M170 418H206V380" stroke="#9FB0C3" stroke-width="8"/>
+    <path d="M256 440V380" stroke="#7EC8FF" stroke-width="8"/>
+    <path d="M342 418H306V380" stroke="#9FB0C3" stroke-width="8"/>
+    <circle cx="170" cy="418" r="10" fill="#0A1118" stroke="#9FB0C3" stroke-width="8"/>
+    <circle cx="256" cy="440" r="10" fill="#0A1118" stroke="#7EC8FF" stroke-width="8"/>
+    <circle cx="342" cy="418" r="10" fill="#0A1118" stroke="#9FB0C3" stroke-width="8"/>
+  </g>
+
+  <!-- Rink outline -->
+  <rect x="96" y="132" width="320" height="248" rx="58" fill="none" stroke="#EDF3FA" stroke-width="10"/>
+  <path d="M96 256V322C96 354.033 121.967 380 154 380" stroke="#2F89C8" stroke-width="8" opacity="0.95"/>
+  <path d="M416 256V322C416 354.033 390.033 380 358 380" stroke="#2F89C8" stroke-width="8" opacity="0.95"/>
+  <path d="M154 132H358" stroke="#2F89C8" stroke-width="8" opacity="0.95"/>
+
+  <!-- Center line and circle -->
+  <path d="M256 132V380" stroke="#9FB0C3" stroke-width="6"/>
+  <circle cx="256" cy="256" r="28" fill="none" stroke="#9FB0C3" stroke-width="6"/>
+  <circle cx="256" cy="256" r="5" fill="#7EC8FF"/>
+
+  <!-- Faceoff circles -->
+  <g stroke="#9FB0C3" stroke-width="6" fill="none">
+    <circle cx="170" cy="198" r="22"/>
+    <circle cx="170" cy="314" r="22"/>
+    <circle cx="342" cy="198" r="22"/>
+    <circle cx="342" cy="314" r="22"/>
+  </g>
+  <g fill="#EDF3FA">
+    <circle cx="170" cy="198" r="4"/>
+    <circle cx="170" cy="314" r="4"/>
+    <circle cx="342" cy="198" r="4"/>
+    <circle cx="342" cy="314" r="4"/>
+  </g>
+
+  <!-- Goal/crease hints -->
+  <g stroke="#2F89C8" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M122 232L144 248V264L122 280"/>
+    <path d="M390 232L368 248V264L390 280"/>
+  </g>
+
+  <!-- Small rink dots -->
+  <g fill="#9FB0C3">
+    <circle cx="215" cy="198" r="3"/>
+    <circle cx="297" cy="198" r="3"/>
+    <circle cx="215" cy="314" r="3"/>
+    <circle cx="297" cy="314" r="3"/>
+  </g>
+</svg>
