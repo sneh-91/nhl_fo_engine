@@ -85,6 +85,28 @@ class NormalizedPlayer(BaseModel):
     source_coverage: SourceCoverage
 
 
+class SkaterAnalytics(BaseModel):
+    season_id: int | None = None
+    situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
+    on_ice_expected_goals_pct: float | None = None
+    relative_expected_goals_pct: float | None = None
+    on_ice_corsi_pct: float | None = None
+
+
+class GoalieAnalytics(BaseModel):
+    season_id: int | None = None
+    situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
+    goals_saved_above_expected: float | None = None
+    goals_saved_above_expected_per_60: float | None = None
+
+
+class MoneyPuckCoverage(BaseModel):
+    available: bool = False
+    season_id: int | None = None
+    situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
+    notes: list[MergeNote] = Field(default_factory=list)
+
+
 class BasicStats(BaseModel):
     season_id: int | None = None
     games_played: int | None = None

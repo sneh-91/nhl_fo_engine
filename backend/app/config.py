@@ -8,6 +8,7 @@ from pydantic import HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
 ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
@@ -23,6 +24,16 @@ class Settings(BaseSettings):
     max_parallel_source_requests: int = 8
     roster_cache_ttl_seconds: int = 900
     player_cache_ttl_seconds: int = 900
+    moneypuck_enabled: bool = Field(default=True, alias="MONEYPUCK_ENABLED")
+    moneypuck_2025_regular_skaters_path: Path = Field(
+        default=ROOT_DIR / "data" / "moneypuck" / "2025_regular" / "skaters.csv",
+        alias="MONEYPUCK_2025_REGULAR_SKATERS_PATH",
+    )
+    moneypuck_2025_regular_goalies_path: Path = Field(
+        default=ROOT_DIR / "data" / "moneypuck" / "2025_regular" / "goalies.csv",
+        alias="MONEYPUCK_2025_REGULAR_GOALIES_PATH",
+    )
+    moneypuck_cache_ttl_seconds: int = Field(default=900, alias="MONEYPUCK_CACHE_TTL_SECONDS")
     nhl_user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
