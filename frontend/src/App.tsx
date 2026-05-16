@@ -261,8 +261,8 @@ const sampleQuestions = [
 
 const hiddenLimitationPills = new Set([
   "These tools search only the current active NHL roster universe built from standings and team rosters.",
-  "Outputs are grounded only in NHL API data and CapWages contract data.",
-  "Advanced analytics and manual team-context reasoning are not part of v0.5.",
+  "Outputs are grounded only in NHL API data, CapWages contract data, and local MoneyPuck player analytics when available.",
+  "Broader advanced analytics and team-context reasoning are not part of the current build.",
 ]);
 
 const comparisonCategories = new Set([
@@ -286,6 +286,11 @@ const comparisonCategories = new Set([
   "shutouts",
   "shots_against",
   "goals_against",
+  "on_ice_expected_goals_pct",
+  "relative_expected_goals_pct",
+  "on_ice_corsi_pct",
+  "goals_saved_above_expected",
+  "goals_saved_above_expected_per_60",
 ]);
 
 function formatCurrency(value: number | null): string {
@@ -321,6 +326,18 @@ function formatStatValue(value: string | number | boolean | null): string {
 }
 
 function formatCategoryLabel(category: string): string {
+  const customLabels: Record<string, string> = {
+    on_ice_expected_goals_pct: "On-Ice xG%",
+    relative_expected_goals_pct: "Relative xG%",
+    on_ice_corsi_pct: "On-Ice Corsi%",
+    goals_saved_above_expected: "Goals Saved Above Expected",
+    goals_saved_above_expected_per_60: "Goals Saved Above Expected / 60",
+  };
+
+  if (customLabels[category]) {
+    return customLabels[category];
+  }
+
   return category
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -440,12 +457,36 @@ function formatSignedDecimal(value: number | null | undefined, digits: number): 
   return `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
-function moneyPuckLabel(coverage: MoneyPuckCoverage): string {
-  if (!coverage.available) {
-    return "MoneyPuck unavailable";
+function formatComparisonMetric(category: string, value: string | number | boolean | null): string {
+  if (
+    category === "on_ice_expected_goals_pct"
+    || category === "relative_expected_goals_pct"
+    || category === "on_ice_corsi_pct"
+  ) {
+    return typeof value === "number"
+      ? category === "relative_expected_goals_pct"
+        ? `${value > 0 ? "+" : ""}${(value * 100).toFixed(1)}%`
+        : `${(value * 100).toFixed(1)}%`
+      : "N/A";
   }
 
-  return coverage.situation === "all" ? "MoneyPuck analytics" : `MoneyPuck ${coverage.situation}`;
+  if (category === "goals_saved_above_expected") {
+    return typeof value === "number" ? formatSignedDecimal(value, 2) : "N/A";
+  }
+
+  if (category === "goals_saved_above_expected_per_60") {
+    return typeof value === "number" ? formatSignedDecimal(value, 3) : "N/A";
+  }
+
+  return formatStatValue(value);
+}
+
+function moneyPuckLabel(coverage: MoneyPuckCoverage): string {
+  if (!coverage.available) {
+    return "Underlying analytics unavailable";
+  }
+
+  return coverage.situation === "all" ? "Underlying analytics" : `Underlying analytics ${coverage.situation}`;
 }
 
 function MoneyPuckPanel(props: { player: ToolPlayerData }) {
@@ -462,7 +503,7 @@ function MoneyPuckPanel(props: { player: ToolPlayerData }) {
             <p>GSAx/60: {formatSignedDecimal(analytics.goals_saved_above_expected_per_60, 3)}</p>
           </>
         ) : (
-          <p>MoneyPuck goalie analytics are not available for this player.</p>
+          <p>Underlying goalie analytics are not available for this player.</p>
         )}
       </div>
     );
@@ -479,7 +520,7 @@ function MoneyPuckPanel(props: { player: ToolPlayerData }) {
           <p>On-Ice Corsi%: {formatPct(analytics.on_ice_corsi_pct)}</p>
         </>
       ) : (
-        <p>MoneyPuck skater analytics are not available for this player.</p>
+        <p>Underlying skater analytics are not available for this player.</p>
       )}
     </div>
   );
@@ -720,14 +761,14 @@ function ComparisonView(props: { result: ComparisonResult }) {
                     ? formatCurrency(
                         typeof fact.player_a_value === "number" ? fact.player_a_value : null,
                       )
-                    : formatStatValue(fact.player_a_value)}
+                    : formatComparisonMetric(fact.category, fact.player_a_value)}
                 </td>
                 <td>
                   {fact.category.includes("aav") || fact.category.includes("cap_hit")
                     ? formatCurrency(
                         typeof fact.player_b_value === "number" ? fact.player_b_value : null,
                       )
-                    : formatStatValue(fact.player_b_value)}
+                    : formatComparisonMetric(fact.category, fact.player_b_value)}
                 </td>
               </tr>
             ))}

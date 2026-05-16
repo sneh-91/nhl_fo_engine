@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.app.clients.capwages import CapWagesClient
 from backend.app.clients.nhl import NHLClient
 from backend.app.config import get_settings
+from backend.app.services.moneypuck import MoneyPuckService
 from backend.app.services.normalization import PlayerNormalizer
 from backend.app.services.orchestration import HockeyOpsOrchestrator
 from backend.app.services.tools import PlayerToolService
@@ -25,8 +26,9 @@ async def main() -> int:
     settings = get_settings()
     nhl_client = NHLClient(settings)
     capwages_client = CapWagesClient(settings)
+    moneypuck_service = MoneyPuckService(settings)
     normalizer = PlayerNormalizer()
-    tool_service = PlayerToolService(settings, nhl_client, capwages_client, normalizer)
+    tool_service = PlayerToolService(settings, nhl_client, capwages_client, normalizer, moneypuck_service)
     orchestrator = HockeyOpsOrchestrator(settings, tool_service)
 
     try:

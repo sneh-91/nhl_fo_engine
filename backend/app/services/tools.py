@@ -197,7 +197,7 @@ class PlayerToolService:
             moneypuck_coverage=tool_player.moneypuck_coverage,
             source_coverage=SourceCoverage(nhl_available=True),
             limitations=[
-                "This tool returns NHL profile and basic stat data only.",
+                "This tool returns NHL profile/basic stat data and current-season MoneyPuck player analytics when available.",
                 "Contract and CapWages fields are not included unless you call a contract or summary tool.",
             ],
         )
@@ -1159,6 +1159,8 @@ class PlayerToolService:
         if player_a.player_type == "goalie" and player_b.player_type == "goalie":
             player_a_goalie = player_a.goalie_stats or GoalieStats()
             player_b_goalie = player_b.goalie_stats or GoalieStats()
+            player_a_goalie_analytics = player_a.goalie_analytics or GoalieAnalytics()
+            player_b_goalie_analytics = player_b.goalie_analytics or GoalieAnalytics()
             stat_facts = [
                 self._comparison_fact("games_played", player_a_goalie.games_played, player_b_goalie.games_played),
                 self._comparison_fact("wins", player_a_goalie.wins, player_b_goalie.wins, higher_is_better=True),
@@ -1175,8 +1177,22 @@ class PlayerToolService:
                 self._comparison_fact("shots_against", player_a_goalie.shots_against, player_b_goalie.shots_against),
                 self._comparison_fact("goals_against", player_a_goalie.goals_against, player_b_goalie.goals_against, lower_is_better=True),
                 self._comparison_fact("time_on_ice", player_a_goalie.time_on_ice, player_b_goalie.time_on_ice),
+                self._comparison_fact(
+                    "goals_saved_above_expected",
+                    player_a_goalie_analytics.goals_saved_above_expected,
+                    player_b_goalie_analytics.goals_saved_above_expected,
+                    higher_is_better=True,
+                ),
+                self._comparison_fact(
+                    "goals_saved_above_expected_per_60",
+                    player_a_goalie_analytics.goals_saved_above_expected_per_60,
+                    player_b_goalie_analytics.goals_saved_above_expected_per_60,
+                    higher_is_better=True,
+                ),
             ]
         else:
+            player_a_skater_analytics = player_a.skater_analytics or SkaterAnalytics()
+            player_b_skater_analytics = player_b.skater_analytics or SkaterAnalytics()
             stat_facts = [
                 self._comparison_fact("games_played", player_a.stats.games_played, player_b.stats.games_played),
                 self._comparison_fact("goals", player_a.stats.goals, player_b.stats.goals, higher_is_better=True),
@@ -1203,6 +1219,24 @@ class PlayerToolService:
                 self._comparison_fact("shots", player_a.stats.shots, player_b.stats.shots, higher_is_better=True),
                 self._comparison_fact("shooting_pct", player_a.stats.shooting_pct, player_b.stats.shooting_pct, higher_is_better=True),
                 self._comparison_fact("avg_toi", player_a.stats.avg_toi, player_b.stats.avg_toi),
+                self._comparison_fact(
+                    "on_ice_expected_goals_pct",
+                    player_a_skater_analytics.on_ice_expected_goals_pct,
+                    player_b_skater_analytics.on_ice_expected_goals_pct,
+                    higher_is_better=True,
+                ),
+                self._comparison_fact(
+                    "relative_expected_goals_pct",
+                    player_a_skater_analytics.relative_expected_goals_pct,
+                    player_b_skater_analytics.relative_expected_goals_pct,
+                    higher_is_better=True,
+                ),
+                self._comparison_fact(
+                    "on_ice_corsi_pct",
+                    player_a_skater_analytics.on_ice_corsi_pct,
+                    player_b_skater_analytics.on_ice_corsi_pct,
+                    higher_is_better=True,
+                ),
             ]
 
         return shared_facts + stat_facts + [
@@ -1248,6 +1282,6 @@ class PlayerToolService:
     def _shared_limitations(self) -> list[str]:
         return [
             "These tools search only the current active NHL roster universe built from standings and team rosters.",
-            "Outputs are grounded only in NHL API data and CapWages contract data.",
-            "Advanced analytics and manual team-context reasoning are not part of v0.5.",
+            "Outputs are grounded only in NHL API data, CapWages contract data, and local MoneyPuck player analytics when available.",
+            "Broader advanced analytics and team-context reasoning are not part of the current build.",
         ]

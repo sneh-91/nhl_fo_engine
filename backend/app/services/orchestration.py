@@ -36,13 +36,18 @@ Use backend tools whenever factual player, roster, stat, or contract information
 Hard rules:
 - Do not invent stats, contract terms, clauses, team context, or player facts.
 - Stay inside the current v0.5 product focus: NHL and hockey topics only.
-- Do not claim advanced analytics, MoneyPuck insights, or strategic team-fit conclusions.
+- Do not claim unsupported advanced analytics or strategic team-fit conclusions.
+- Current-season MoneyPuck player analytics are supported only through the tool-returned fields that are actually present.
+- Do not invent MoneyPuck metrics beyond the supported player fields in the tool output.
+- Do not claim team-level MoneyPuck context yet.
 - If the question is subjective or evaluative, you may give a clearly labeled hockey opinion or judgment.
 - For subjective questions, use tool-returned facts when helpful, but do not refuse only because there is no single objectively verifiable answer.
 - For broad subjective questions without a stated criterion, answer with your best hockey judgment first, then optionally mention a few factual ways to narrow it.
 - If answer to question depends on facts the tools cannot provide, say what is missing plainly instead of pretending certainty.
 - Use the tool outputs as the source of truth.
 - If the user is comparing two players or asking who had the better season, use compare_players rather than separate summary calls.
+- For comparison questions, when current-season player analytics are available in the tool output, treat them as meaningful evidence rather than an afterthought.
+- If the question is specifically about MoneyPuck or underlying analytics, prefer player profile or summary tools so you can use the returned analytics fields directly.
 - For season-stat questions, set the tool argument season_type explicitly.
 - Use season_type=regular_season by default.
 - Use season_type=playoffs only when the user explicitly needs playoff or postseason stats.
@@ -62,6 +67,9 @@ Output style:
 - If comparing or ranking players, base all takeaways only on tool-returned data.
 - If answering with opinion, say it is your view and separate opinion from hard facts.
 - When citing a player's season production, include games played (GP) alongside the scoring line when available.
+- When current-season player analytics are available and relevant, cite them plainly and keep them separate from the NHL counting-stat line.
+- Unless the user explicitly asks about MoneyPuck, refer to them as underlying analytics or chance-share / impact numbers rather than repeatedly calling them "MoneyPuck stats."
+- If MoneyPuck analytics are missing for a player, say that plainly instead of inventing an analytics take.
 - If player games played differ meaningfully, discuss both total production and rate production.
 - Do not treat a tiny total-point edge as decisive without acknowledging the games-played context.
 """.strip()
@@ -334,8 +342,9 @@ class HockeyOpsOrchestrator:
                 "type": "function",
                 "name": "get_player_profile",
                 "description": (
-                    "Fetch one player's NHL profile, identity, season stats, and recent form. "
+                    "Fetch one player's NHL profile, identity, season stats, recent form, and current-season MoneyPuck player analytics when available. "
                     "Supports both skaters and goalies for single-player questions. "
+                    "MoneyPuck analytics here are regular-season only for the local 2025-26 dataset. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines. "
                     "Use this for factual player-summary questions when contract detail is not the main focus."
                 ),
@@ -355,8 +364,9 @@ class HockeyOpsOrchestrator:
                 "type": "function",
                 "name": "get_player_summary_data",
                 "description": (
-                    "Fetch one merged player object combining NHL profile/stats with CapWages contract data. "
+                    "Fetch one merged player object combining NHL profile/stats, CapWages contract data, and current-season MoneyPuck player analytics when available. "
                     "Supports both skaters and goalies for single-player questions. "
+                    "MoneyPuck analytics here are regular-season only for the local 2025-26 dataset. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines."
                 ),
                 "strict": True,
@@ -367,6 +377,7 @@ class HockeyOpsOrchestrator:
                 "name": "compare_players",
                 "description": (
                     "Compare two current NHL roster players side by side using factual NHL and CapWages data. "
+                    "Includes current-season player analytics when available. "
                     "Supports skater-vs-skater and goalie-vs-goalie comparisons. "
                     "Set season_type to playoffs when the comparison should use playoff stats instead of regular-season stats."
                 ),
@@ -616,26 +627,31 @@ class HockeyOpsOrchestrator:
 
         player = result.get("player")
         if isinstance(player, dict):
-            collected.extend(self._collect_source_notes(player))
+            collected.extend(self._collect_player_notes(player))
 
         for field_name in ("players", "player_a", "player_b"):
             value = result.get(field_name)
             if isinstance(value, list):
                 for item in value:
                     if isinstance(item, dict):
-                        collected.extend(self._collect_source_notes(item))
+                        collected.extend(self._collect_player_notes(item))
             elif isinstance(value, dict):
-                collected.extend(self._collect_source_notes(value))
+                collected.extend(self._collect_player_notes(value))
 
         return self._dedupe_limitations(collected)
 
-    def _collect_source_notes(self, payload: dict[str, Any]) -> list[str]:
+    def _collect_player_notes(self, payload: dict[str, Any]) -> list[str]:
         collected: list[str] = []
-        source_coverage = payload.get("source_coverage")
-        if not isinstance(source_coverage, dict):
+        collected.extend(self._collect_notes_from_coverage(payload.get("source_coverage")))
+        collected.extend(self._collect_notes_from_coverage(payload.get("moneypuck_coverage")))
+        return collected
+
+    def _collect_notes_from_coverage(self, coverage: Any) -> list[str]:
+        collected: list[str] = []
+        if not isinstance(coverage, dict):
             return collected
 
-        notes = source_coverage.get("notes")
+        notes = coverage.get("notes")
         if not isinstance(notes, list):
             return collected
 
