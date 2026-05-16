@@ -77,6 +77,14 @@ type RecentForm = {
 
 type SkaterStats = BasicStats;
 
+type SkaterAnalytics = {
+  season_id?: number | null;
+  situation: "all" | "5on5" | "5on4" | "4on5" | "other" | null;
+  on_ice_expected_goals_pct: number | null;
+  relative_expected_goals_pct: number | null;
+  on_ice_corsi_pct: number | null;
+};
+
 type GoalieStats = {
   season_id?: number | null;
   games_played: number | null;
@@ -89,6 +97,20 @@ type GoalieStats = {
   shots_against: number | null;
   goals_against: number | null;
   time_on_ice: string | null;
+};
+
+type GoalieAnalytics = {
+  season_id?: number | null;
+  situation: "all" | "5on5" | "5on4" | "4on5" | "other" | null;
+  goals_saved_above_expected: number | null;
+  goals_saved_above_expected_per_60: number | null;
+};
+
+type MoneyPuckCoverage = {
+  available: boolean;
+  season_id?: number | null;
+  situation: "all" | "5on5" | "5on4" | "4on5" | "other" | null;
+  notes: MergeNote[];
 };
 
 type GoalieRecentForm = {
@@ -120,6 +142,9 @@ type ToolPlayerData = {
   playoff_goalie_stats?: GoalieStats | null;
   recent_form: RecentForm;
   goalie_recent_form?: GoalieRecentForm | null;
+  skater_analytics?: SkaterAnalytics | null;
+  goalie_analytics?: GoalieAnalytics | null;
+  moneypuck_coverage: MoneyPuckCoverage;
   source_coverage: SourceCoverage;
 };
 
@@ -182,6 +207,9 @@ type PlayerProfileToolResult = {
   regular_season_goalie_stats?: GoalieStats | null;
   playoff_goalie_stats?: GoalieStats | null;
   goalie_recent_form?: GoalieRecentForm | null;
+  skater_analytics?: SkaterAnalytics | null;
+  goalie_analytics?: GoalieAnalytics | null;
+  moneypuck_coverage: MoneyPuckCoverage;
   source_coverage: SourceCoverage;
 };
 
@@ -337,6 +365,10 @@ function supportNotes(sourceCoverage: SourceCoverage): string[] {
   return sourceCoverage.notes.map((note) => note.detail);
 }
 
+function moneypuckNotes(coverage: MoneyPuckCoverage): string[] {
+  return coverage.notes.map((note) => note.detail);
+}
+
 function visibleLimitations(limitations: string[]): string[] {
   return limitations.filter((item) => !hiddenLimitationPills.has(item));
 }
@@ -390,6 +422,67 @@ function formatGoalieLine(stats: GoalieStats | null | undefined): string {
     `${formatDecimal(stats.goals_against_avg, 2)} GAA`,
     `${formatStatValue(stats.shutouts)} SO`,
   ].join(" / ");
+}
+
+function formatPct(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedDecimal(value: number | null | undefined, digits: number): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+
+  return `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+function moneyPuckLabel(coverage: MoneyPuckCoverage): string {
+  if (!coverage.available) {
+    return "MoneyPuck unavailable";
+  }
+
+  return coverage.situation === "all" ? "MoneyPuck analytics" : `MoneyPuck ${coverage.situation}`;
+}
+
+function MoneyPuckPanel(props: { player: ToolPlayerData }) {
+  const { player } = props;
+
+  if (player.player_type === "goalie") {
+    const analytics = player.goalie_analytics;
+    return (
+      <div className="micro-panel">
+        <p className="micro-label">{moneyPuckLabel(player.moneypuck_coverage)}</p>
+        {player.moneypuck_coverage.available && analytics ? (
+          <>
+            <p>GSAx: {formatSignedDecimal(analytics.goals_saved_above_expected, 2)}</p>
+            <p>GSAx/60: {formatSignedDecimal(analytics.goals_saved_above_expected_per_60, 3)}</p>
+          </>
+        ) : (
+          <p>MoneyPuck goalie analytics are not available for this player.</p>
+        )}
+      </div>
+    );
+  }
+
+  const analytics = player.skater_analytics;
+  return (
+    <div className="micro-panel">
+      <p className="micro-label">{moneyPuckLabel(player.moneypuck_coverage)}</p>
+      {player.moneypuck_coverage.available && analytics ? (
+        <>
+          <p>On-Ice xG%: {formatPct(analytics.on_ice_expected_goals_pct)}</p>
+          <p>Relative xG%: {formatSignedDecimal((analytics.relative_expected_goals_pct ?? 0) * 100, 1)}%</p>
+          <p>On-Ice Corsi%: {formatPct(analytics.on_ice_corsi_pct)}</p>
+        </>
+      ) : (
+        <p>MoneyPuck skater analytics are not available for this player.</p>
+      )}
+    </div>
+  );
 }
 
 function playerKeyFacts(player: ToolPlayerData): Array<{ label: string; value: string }> {
@@ -517,11 +610,12 @@ function PlayerCard(props: { player: ToolPlayerData }) {
             {player.active_contract.current_clause ?? "No clause listed"}
           </p>
         </div>
+        <MoneyPuckPanel player={player} />
       </div>
 
-      {supportNotes(player.source_coverage).length > 0 ? (
+      {[...supportNotes(player.source_coverage), ...moneypuckNotes(player.moneypuck_coverage)].length > 0 ? (
         <ul className="note-list">
-          {supportNotes(player.source_coverage).map((note) => (
+          {[...supportNotes(player.source_coverage), ...moneypuckNotes(player.moneypuck_coverage)].map((note) => (
             <li key={note}>{note}</li>
           ))}
         </ul>
@@ -669,6 +763,9 @@ function ProfileView(props: { result: PlayerProfileToolResult }) {
     playoff_goalie_stats: props.result.playoff_goalie_stats,
     recent_form: props.result.recent_form,
     goalie_recent_form: props.result.goalie_recent_form,
+    skater_analytics: props.result.skater_analytics,
+    goalie_analytics: props.result.goalie_analytics,
+    moneypuck_coverage: props.result.moneypuck_coverage,
     source_coverage: props.result.source_coverage,
   };
 
@@ -766,6 +863,9 @@ function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
     playoff_goalie_stats: result.playoff_goalie_stats,
     recent_form: result.recent_form,
     goalie_recent_form: result.goalie_recent_form,
+    skater_analytics: result.skater_analytics,
+    goalie_analytics: result.goalie_analytics,
+    moneypuck_coverage: result.moneypuck_coverage,
     source_coverage: result.source_coverage,
   };
 }
