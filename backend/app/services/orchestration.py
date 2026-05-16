@@ -24,6 +24,7 @@ from ..models import (
     PlayerToolQuery,
     ToolInvocationRecord,
 )
+from .team_context import TeamContextService
 from .tools import PlayerToolService
 
 
@@ -112,9 +113,15 @@ If true, the message should be:
 
 
 class HockeyOpsOrchestrator:
-    def __init__(self, settings: Settings, tool_service: PlayerToolService) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        tool_service: PlayerToolService,
+        team_context_service: TeamContextService,
+    ) -> None:
         self._settings = settings
         self._tool_service = tool_service
+        self._team_context_service = team_context_service
         self._client = (
             AsyncOpenAI(api_key=settings.openai_api_key)
             if settings.openai_api_key

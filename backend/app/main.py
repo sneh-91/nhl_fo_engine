@@ -20,6 +20,7 @@ from .models import OrchestratorDiagnosticsResponse
 from .services.normalization import PlayerNormalizer
 from .services.moneypuck import MoneyPuckService
 from .services.orchestration import HockeyOpsOrchestrator
+from .services.team_context import TeamContextService
 from .services.tools import PlayerToolService
 
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     app.state.capwages_client = CapWagesClient(settings)
     app.state.player_normalizer = PlayerNormalizer()
     app.state.moneypuck_service = MoneyPuckService(settings)
+    app.state.team_context_service = TeamContextService(settings)
     app.state.player_tool_service = PlayerToolService(
         settings=settings,
         nhl_client=app.state.nhl_client,
@@ -40,6 +42,7 @@ async def lifespan(app: FastAPI):
     app.state.hockeyops_orchestrator = HockeyOpsOrchestrator(
         settings=settings,
         tool_service=app.state.player_tool_service,
+        team_context_service=app.state.team_context_service,
     )
     try:
         yield
