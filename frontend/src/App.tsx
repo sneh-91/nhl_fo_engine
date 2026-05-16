@@ -52,6 +52,8 @@ type ActiveContract = {
   active_season: ContractSeason | null;
 };
 
+type PlayerType = "skater" | "goalie";
+
 type StatsContext = "regular_season" | "playoffs" | "both";
 
 type BasicStats = {
@@ -72,15 +74,51 @@ type RecentForm = {
   points: number;
 };
 
+type SkaterStats = BasicStats;
+
+type GoalieStats = {
+  season_id?: number | null;
+  games_played: number | null;
+  wins: number | null;
+  losses: number | null;
+  ot_losses: number | null;
+  save_pct: number | null;
+  goals_against_avg: number | null;
+  shutouts: number | null;
+  shots_against: number | null;
+  goals_against: number | null;
+  time_on_ice: string | null;
+};
+
+type GoalieRecentForm = {
+  games: number;
+  wins: number;
+  losses: number;
+  ot_losses: number;
+  save_pct: number | null;
+  goals_against_avg: number | null;
+  shots_against: number;
+  goals_against: number;
+  time_on_ice: string | null;
+};
+
 type ToolPlayerData = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
   active_contract: ActiveContract;
+  player_type: PlayerType;
   stats_context: StatsContext;
   stats: BasicStats;
   regular_season_stats?: BasicStats | null;
   playoff_stats?: BasicStats | null;
+  skater_stats?: SkaterStats | null;
+  goalie_stats?: GoalieStats | null;
+  regular_season_skater_stats?: SkaterStats | null;
+  playoff_skater_stats?: SkaterStats | null;
+  regular_season_goalie_stats?: GoalieStats | null;
+  playoff_goalie_stats?: GoalieStats | null;
   recent_form: RecentForm;
+  goalie_recent_form?: GoalieRecentForm | null;
   source_coverage: SourceCoverage;
 };
 
@@ -119,14 +157,30 @@ type SkaterLeaderboardResult = {
   leaders: LeaderboardEntry[];
 };
 
+type GoalieLeaderboardResult = {
+  season_id: number;
+  season_type: "regular_season" | "playoffs";
+  category: string;
+  category_label: string;
+  leaders: LeaderboardEntry[];
+};
+
 type PlayerProfileToolResult = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
+  player_type: PlayerType;
   stats_context: StatsContext;
   stats: BasicStats;
   regular_season_stats?: BasicStats | null;
   playoff_stats?: BasicStats | null;
   recent_form: RecentForm;
+  skater_stats?: SkaterStats | null;
+  goalie_stats?: GoalieStats | null;
+  regular_season_skater_stats?: SkaterStats | null;
+  playoff_skater_stats?: SkaterStats | null;
+  regular_season_goalie_stats?: GoalieStats | null;
+  playoff_goalie_stats?: GoalieStats | null;
+  goalie_recent_form?: GoalieRecentForm | null;
   source_coverage: SourceCoverage;
 };
 
@@ -147,6 +201,7 @@ type ToolInvocation = {
     ok: boolean;
     result?:
       | SkaterLeaderboardResult
+      | GoalieLeaderboardResult
       | SearchResult
       | ComparisonResult
       | PlayerProfileToolResult
@@ -194,6 +249,14 @@ const comparisonCategories = new Set([
   "current_aav",
   "current_cap_hit",
   "years_remaining",
+  "wins",
+  "losses",
+  "ot_losses",
+  "save_pct",
+  "goals_against_avg",
+  "shutouts",
+  "shots_against",
+  "goals_against",
 ]);
 
 function formatCurrency(value: number | null): string {
@@ -259,7 +322,13 @@ function calculateAge(birthDate: string | null): string {
 function playerSubtitle(player: ToolPlayerData): string {
   const team = player.profile.team_abbrev ?? player.profile.team_name ?? "FA";
   const position = player.profile.capwages_position_detail ?? player.profile.position ?? "N/A";
-  const shot = player.profile.shoots_catches ? `${player.profile.shoots_catches}-shot` : "shot N/A";
+  const shot = player.profile.shoots_catches
+    ? player.player_type === "goalie"
+      ? `${player.profile.shoots_catches}-catches`
+      : `${player.profile.shoots_catches}-shot`
+    : player.player_type === "goalie"
+      ? "catches N/A"
+      : "shot N/A";
   return `${team} - ${position} - ${shot}`;
 }
 
@@ -291,7 +360,61 @@ function formatScoringLine(stats: BasicStats | null | undefined): string {
   return `${formatStatValue(stats.goals)} G / ${formatStatValue(stats.assists)} A / ${formatStatValue(stats.points)} PTS`;
 }
 
+function formatDecimal(value: number | null | undefined, digits: number): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+
+  return value.toFixed(digits);
+}
+
+function formatSavePct(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+
+  const formatted = value.toFixed(3);
+  return value >= 0 && value < 1 ? formatted.replace(/^0/, "") : formatted;
+}
+
+function formatGoalieLine(stats: GoalieStats | null | undefined): string {
+  if (!stats) {
+    return "N/A";
+  }
+
+  return [
+    `${formatStatValue(stats.games_played)} GP`,
+    `${formatStatValue(stats.wins)} W`,
+    `${formatSavePct(stats.save_pct)} SV%`,
+    `${formatDecimal(stats.goals_against_avg, 2)} GAA`,
+    `${formatStatValue(stats.shutouts)} SO`,
+  ].join(" / ");
+}
+
 function playerKeyFacts(player: ToolPlayerData): Array<{ label: string; value: string }> {
+  if (player.player_type === "goalie") {
+    if (player.stats_context === "both") {
+      return [
+        { label: "Age", value: calculateAge(player.profile.birth_date) },
+        { label: "RS GP", value: formatStatValue(player.regular_season_goalie_stats?.games_played ?? null) },
+        { label: "RS SV%", value: formatSavePct(player.regular_season_goalie_stats?.save_pct ?? null) },
+        { label: "PO GP", value: formatStatValue(player.playoff_goalie_stats?.games_played ?? null) },
+        { label: "PO SV%", value: formatSavePct(player.playoff_goalie_stats?.save_pct ?? null) },
+        { label: "AAV", value: formatCurrency(player.active_contract.current_aav) },
+      ];
+    }
+
+    const labelPrefix = player.stats_context === "playoffs" ? "PO " : "";
+    return [
+      { label: "Age", value: calculateAge(player.profile.birth_date) },
+      { label: `${labelPrefix}GP`, value: formatStatValue(player.goalie_stats?.games_played ?? null) },
+      { label: `${labelPrefix}W`, value: formatStatValue(player.goalie_stats?.wins ?? null) },
+      { label: `${labelPrefix}SV%`, value: formatSavePct(player.goalie_stats?.save_pct ?? null) },
+      { label: `${labelPrefix}GAA`, value: formatDecimal(player.goalie_stats?.goals_against_avg ?? null, 2) },
+      { label: "AAV", value: formatCurrency(player.active_contract.current_aav) },
+    ];
+  }
+
   if (player.stats_context === "both") {
     return [
       { label: "Age", value: calculateAge(player.profile.birth_date) },
@@ -366,13 +489,24 @@ function PlayerCard(props: { player: ToolPlayerData }) {
       <div className="micro-panels">
         <div className="micro-panel">
           <p className="micro-label">{statsContextLabel(player.stats_context)}</p>
-          {player.stats_context === "both" ? (
-            <>
-              <p>Regular season: {formatScoringLine(player.regular_season_stats)}</p>
-              <p>Playoffs: {formatScoringLine(player.playoff_stats)}</p>
-            </>
+          {player.player_type === "goalie" ? (
+            player.stats_context === "both" ? (
+              <>
+                <p>Regular season: {formatGoalieLine(player.regular_season_goalie_stats)}</p>
+                <p>Playoffs: {formatGoalieLine(player.playoff_goalie_stats)}</p>
+              </>
+            ) : (
+              <p>{formatGoalieLine(player.goalie_stats)}</p>
+            )
           ) : (
-            <p>{formatScoringLine(player.stats)}</p>
+            player.stats_context === "both" ? (
+              <>
+                <p>Regular season: {formatScoringLine(player.regular_season_stats)}</p>
+                <p>Playoffs: {formatScoringLine(player.playoff_stats)}</p>
+              </>
+            ) : (
+              <p>{formatScoringLine(player.stats)}</p>
+            )
           )}
         </div>
         <div className="micro-panel">
@@ -420,7 +554,7 @@ function SearchResultsView(props: { result: SearchResult }) {
   );
 }
 
-function LeaderboardView(props: { result: SkaterLeaderboardResult }) {
+function LeaderboardView(props: { result: SkaterLeaderboardResult | GoalieLeaderboardResult }) {
   const { result } = props;
   const seasonLabel = result.season_type === "playoffs" ? "Playoffs" : "Regular season";
 
@@ -521,11 +655,19 @@ function ProfileView(props: { result: PlayerProfileToolResult }) {
       expiry_status: null,
       active_season: null,
     },
+    player_type: props.result.player_type,
     stats_context: props.result.stats_context,
     stats: props.result.stats,
     regular_season_stats: props.result.regular_season_stats,
     playoff_stats: props.result.playoff_stats,
+    skater_stats: props.result.skater_stats,
+    goalie_stats: props.result.goalie_stats,
+    regular_season_skater_stats: props.result.regular_season_skater_stats,
+    playoff_skater_stats: props.result.playoff_skater_stats,
+    regular_season_goalie_stats: props.result.regular_season_goalie_stats,
+    playoff_goalie_stats: props.result.playoff_goalie_stats,
     recent_form: props.result.recent_form,
+    goalie_recent_form: props.result.goalie_recent_form,
     source_coverage: props.result.source_coverage,
   };
 
@@ -610,11 +752,19 @@ function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
       expiry_status: null,
       active_season: null,
     },
+    player_type: result.player_type,
     stats_context: result.stats_context,
     stats: result.stats,
     regular_season_stats: result.regular_season_stats,
     playoff_stats: result.playoff_stats,
+    skater_stats: result.skater_stats,
+    goalie_stats: result.goalie_stats,
+    regular_season_skater_stats: result.regular_season_skater_stats,
+    playoff_skater_stats: result.playoff_skater_stats,
+    regular_season_goalie_stats: result.regular_season_goalie_stats,
+    playoff_goalie_stats: result.playoff_goalie_stats,
     recent_form: result.recent_form,
+    goalie_recent_form: result.goalie_recent_form,
     source_coverage: result.source_coverage,
   };
 }
@@ -740,11 +890,14 @@ function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
             );
           }
 
-          if (toolInvocation.tool_name === "get_skater_leaderboard") {
+          if (
+            toolInvocation.tool_name === "get_skater_leaderboard"
+            || toolInvocation.tool_name === "get_goalie_leaderboard"
+          ) {
             return (
               <LeaderboardView
                 key={key}
-                result={toolInvocation.output.result as SkaterLeaderboardResult}
+                result={toolInvocation.output.result as SkaterLeaderboardResult | GoalieLeaderboardResult}
               />
             );
           }

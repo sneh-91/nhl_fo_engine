@@ -97,11 +97,49 @@ class BasicStats(BaseModel):
     avg_toi: str | None = None
 
 
+class SkaterStats(BaseModel):
+    season_id: int | None = None
+    games_played: int | None = None
+    goals: int | None = None
+    assists: int | None = None
+    points: int | None = None
+    shots: int | None = None
+    shooting_pct: float | None = None
+    plus_minus: int | None = None
+    avg_toi: str | None = None
+
+
+class GoalieStats(BaseModel):
+    season_id: int | None = None
+    games_played: int | None = None
+    wins: int | None = None
+    losses: int | None = None
+    ot_losses: int | None = None
+    save_pct: float | None = None
+    goals_against_avg: float | None = None
+    shutouts: int | None = None
+    shots_against: int | None = None
+    goals_against: int | None = None
+    time_on_ice: str | None = None
+
+
 class RecentForm(BaseModel):
     games: int = 0
     goals: int = 0
     assists: int = 0
     points: int = 0
+
+
+class GoalieRecentForm(BaseModel):
+    games: int = 0
+    wins: int = 0
+    losses: int = 0
+    ot_losses: int = 0
+    save_pct: float | None = None
+    goals_against_avg: float | None = None
+    shots_against: int = 0
+    goals_against: int = 0
+    time_on_ice: str | None = None
 
 
 class ActiveContractView(BaseModel):
@@ -122,11 +160,19 @@ class ToolPlayerData(BaseModel):
     profile: PlayerProfile
     contract: ContractSnapshot
     active_contract: ActiveContractView
+    player_type: Literal["skater", "goalie"] = "skater"
     stats_context: Literal["regular_season", "playoffs", "both"] = "regular_season"
     stats: BasicStats = Field(default_factory=BasicStats)
     regular_season_stats: BasicStats | None = None
     playoff_stats: BasicStats | None = None
+    skater_stats: SkaterStats | None = None
+    goalie_stats: GoalieStats | None = None
+    regular_season_skater_stats: SkaterStats | None = None
+    playoff_skater_stats: SkaterStats | None = None
+    regular_season_goalie_stats: GoalieStats | None = None
+    playoff_goalie_stats: GoalieStats | None = None
     recent_form: RecentForm = Field(default_factory=RecentForm)
+    goalie_recent_form: GoalieRecentForm | None = None
     source_coverage: SourceCoverage
 
 
@@ -165,9 +211,17 @@ class PlayerSearchFilters(BaseModel):
     assists_min: int | None = None
     points_min: int | None = None
     shots_min: int | None = None
+    wins_min: int | None = None
+    save_pct_min: float | None = None
+    gaa_max: float | None = None
+    shutouts_min: int | None = None
     sort_by: Literal[
         "points_desc",
         "goals_desc",
+        "wins_desc",
+        "save_pct_desc",
+        "gaa_asc",
+        "shutouts_desc",
         "age_asc",
         "age_desc",
         "aav_asc",
@@ -181,11 +235,19 @@ class PlayerSearchFilters(BaseModel):
 class PlayerProfileToolResult(BaseModel):
     identity: PlayerIdentity
     profile: PlayerProfile
+    player_type: Literal["skater", "goalie"] = "skater"
     stats_context: Literal["regular_season", "playoffs", "both"] = "regular_season"
     stats: BasicStats = Field(default_factory=BasicStats)
     regular_season_stats: BasicStats | None = None
     playoff_stats: BasicStats | None = None
     recent_form: RecentForm = Field(default_factory=RecentForm)
+    skater_stats: SkaterStats | None = None
+    goalie_stats: GoalieStats | None = None
+    regular_season_skater_stats: SkaterStats | None = None
+    playoff_skater_stats: SkaterStats | None = None
+    regular_season_goalie_stats: GoalieStats | None = None
+    playoff_goalie_stats: GoalieStats | None = None
+    goalie_recent_form: GoalieRecentForm | None = None
     source_coverage: SourceCoverage
     limitations: list[str] = Field(default_factory=list)
 
@@ -239,6 +301,30 @@ class SkaterLeaderboardResult(BaseModel):
     limitations: list[str] = Field(default_factory=list)
 
 
+class GoalieLeaderboardEntry(BaseModel):
+    rank: int
+    nhl_id: int
+    full_name: str
+    team_abbrev: str | None = None
+    position: str | None = None
+    headshot_url: str | None = None
+    value: float | int
+
+
+class GoalieLeaderboardResult(BaseModel):
+    season_id: int
+    season_type: Literal["regular_season", "playoffs"]
+    category: Literal[
+        "wins",
+        "shutouts",
+        "save_pct",
+        "goals_against_avg",
+    ]
+    category_label: str
+    leaders: list[GoalieLeaderboardEntry] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
 class ComparisonFact(BaseModel):
     category: str
     player_a_value: str | int | float | bool | None = None
@@ -286,6 +372,19 @@ class SkaterLeaderboardQuery(BaseModel):
         "penalty_minutes",
         "faceoff_pct",
         "time_on_ice",
+    ]
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class GoalieLeaderboardQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    season_type: Literal["regular_season", "playoffs"] = "regular_season"
+    category: Literal[
+        "wins",
+        "shutouts",
+        "save_pct",
+        "goals_against_avg",
     ]
     limit: int = Field(default=10, ge=1, le=50)
 

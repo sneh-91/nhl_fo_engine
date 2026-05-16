@@ -15,6 +15,7 @@ from ..errors import (
     UpstreamRequestError,
 )
 from ..models import (
+    GoalieLeaderboardQuery,
     OrchestratedAnswerResult,
     PlayerComparisonQuery,
     PlayerSearchFilters,
@@ -46,7 +47,11 @@ Hard rules:
 - Use season_type=regular_season by default.
 - Use season_type=playoffs only when the user explicitly needs playoff or postseason stats.
 - Use season_type=both only when the user explicitly asks for both regular-season and playoff stats in the same answer.
-- For league leaders or leaderboard questions, use get_skater_leaderboard with one supported category.
+- For league leaders or leaderboard questions, use the dedicated skater or goalie leaderboard tool that matches the stat category being asked.
+- Goalie profile and summary questions are supported.
+- Goalie search questions are supported through search_players with goalie-specific filters and sorts.
+- Goalie-vs-goalie comparison is supported through compare_players.
+- Mixed skater-vs-goalie statistical comparison is not supported.
 
 Output style:
 - Keep the answer concise and direct.
@@ -305,12 +310,22 @@ class HockeyOpsOrchestrator:
             },
             {
                 "type": "function",
+                "name": "get_goalie_leaderboard",
+                "description": (
+                    "Fetch a current-season NHL goalie leaderboard for one supported category. "
+                    "Use this for league-leader questions about wins, shutouts, save percentage, or goals-against average."
+                ),
+                "strict": True,
+                "parameters": self._goalie_leaderboard_schema(),
+            },
+            {
+                "type": "function",
                 "name": "search_players",
                 "description": (
                     "Search the current active NHL roster universe using factual NHL and CapWages filters. "
                     "Stat filters and ranking use the requested season_type. "
                     "Use this for discovery questions, candidate lists, age/team/position/contract buckets, "
-                    "or when the user asks for players matching a profile."
+                    "or when the user asks for players matching a skater or goalie profile."
                 ),
                 "strict": True,
                 "parameters": self._search_players_schema(),
@@ -320,6 +335,7 @@ class HockeyOpsOrchestrator:
                 "name": "get_player_profile",
                 "description": (
                     "Fetch one player's NHL profile, identity, season stats, and recent form. "
+                    "Supports both skaters and goalies for single-player questions. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines. "
                     "Use this for factual player-summary questions when contract detail is not the main focus."
                 ),
@@ -340,6 +356,7 @@ class HockeyOpsOrchestrator:
                 "name": "get_player_summary_data",
                 "description": (
                     "Fetch one merged player object combining NHL profile/stats with CapWages contract data. "
+                    "Supports both skaters and goalies for single-player questions. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines."
                 ),
                 "strict": True,
@@ -350,6 +367,7 @@ class HockeyOpsOrchestrator:
                 "name": "compare_players",
                 "description": (
                     "Compare two current NHL roster players side by side using factual NHL and CapWages data. "
+                    "Supports skater-vs-skater and goalie-vs-goalie comparisons. "
                     "Set season_type to playoffs when the comparison should use playoff stats instead of regular-season stats."
                 ),
                 "strict": True,
@@ -398,6 +416,29 @@ class HockeyOpsOrchestrator:
                 },
             },
             "required": ["player", "nhl_id", "season_type"],
+        }
+
+    def _goalie_leaderboard_schema(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs"],
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "wins",
+                        "shutouts",
+                        "save_pct",
+                        "goals_against_avg",
+                    ],
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+            },
+            "required": ["season_type", "category", "limit"],
         }
 
     def _player_comparison_schema(self) -> dict[str, Any]:
@@ -449,11 +490,19 @@ class HockeyOpsOrchestrator:
                 "assists_min": {"type": ["integer", "null"]},
                 "points_min": {"type": ["integer", "null"]},
                 "shots_min": {"type": ["integer", "null"]},
+                "wins_min": {"type": ["integer", "null"]},
+                "save_pct_min": {"type": ["number", "null"]},
+                "gaa_max": {"type": ["number", "null"]},
+                "shutouts_min": {"type": ["integer", "null"]},
                 "sort_by": {
                     "type": "string",
                     "enum": [
                         "points_desc",
                         "goals_desc",
+                        "wins_desc",
+                        "save_pct_desc",
+                        "gaa_asc",
+                        "shutouts_desc",
                         "age_asc",
                         "age_desc",
                         "aav_asc",
@@ -483,6 +532,10 @@ class HockeyOpsOrchestrator:
                 "assists_min",
                 "points_min",
                 "shots_min",
+                "wins_min",
+                "save_pct_min",
+                "gaa_max",
+                "shutouts_min",
                 "sort_by",
                 "limit",
             ],
@@ -494,6 +547,12 @@ class HockeyOpsOrchestrator:
             if name == "get_skater_leaderboard":
                 result = await self._tool_service.get_skater_leaderboard(
                     SkaterLeaderboardQuery.model_validate(arguments)
+                )
+                return {"ok": True, "result": result.model_dump(mode="json")}
+
+            if name == "get_goalie_leaderboard":
+                result = await self._tool_service.get_goalie_leaderboard(
+                    GoalieLeaderboardQuery.model_validate(arguments)
                 )
                 return {"ok": True, "result": result.model_dump(mode="json")}
 

@@ -15,6 +15,11 @@ from ..models import (
     ActiveContractView,
     BasicStats,
     ComparisonFact,
+    GoalieLeaderboardEntry,
+    GoalieLeaderboardQuery,
+    GoalieLeaderboardResult,
+    GoalieRecentForm,
+    GoalieStats,
     MergeNote,
     NormalizedPlayer,
     PlayerComparisonResult,
@@ -29,6 +34,7 @@ from ..models import (
     PlayerToolQuery,
     RecentForm,
     SourceCoverage,
+    SkaterStats,
     ToolPlayerData,
 )
 from .normalization import PlayerNormalizer
@@ -119,6 +125,10 @@ def _format_toi_seconds(total_seconds: int | None) -> str | None:
     return f"{minutes}:{seconds:02d}"
 
 
+def _player_type_from_position(position: str | None) -> Literal["skater", "goalie"]:
+    return "goalie" if (position or "").upper() == "G" else "skater"
+
+
 LEADERBOARD_CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "points": ("points", "Points"),
     "goals": ("goals", "Goals"),
@@ -129,6 +139,13 @@ LEADERBOARD_CATEGORY_MAP: dict[str, tuple[str, str]] = {
     "penalty_minutes": ("penaltyMins", "Penalty Minutes"),
     "faceoff_pct": ("faceoffLeaders", "Faceoff Percentage"),
     "time_on_ice": ("toi", "Time On Ice"),
+}
+
+GOALIE_LEADERBOARD_CATEGORY_MAP: dict[str, tuple[str, str]] = {
+    "wins": ("wins", "Wins"),
+    "shutouts": ("shutouts", "Shutouts"),
+    "save_pct": ("savePctg", "Save Percentage"),
+    "goals_against_avg": ("goalsAgainstAverage", "Goals-Against Average"),
 }
 
 
@@ -156,11 +173,19 @@ class PlayerToolService:
         return PlayerProfileToolResult(
             identity=tool_player.identity,
             profile=tool_player.profile,
+            player_type=tool_player.player_type,
             stats_context=tool_player.stats_context,
             stats=tool_player.stats,
             regular_season_stats=tool_player.regular_season_stats,
             playoff_stats=tool_player.playoff_stats,
             recent_form=tool_player.recent_form,
+            skater_stats=tool_player.skater_stats,
+            goalie_stats=tool_player.goalie_stats,
+            regular_season_skater_stats=tool_player.regular_season_skater_stats,
+            playoff_skater_stats=tool_player.playoff_skater_stats,
+            regular_season_goalie_stats=tool_player.regular_season_goalie_stats,
+            playoff_goalie_stats=tool_player.playoff_goalie_stats,
+            goalie_recent_form=tool_player.goalie_recent_form,
             source_coverage=SourceCoverage(nhl_available=True),
             limitations=[
                 "This tool returns NHL profile and basic stat data only.",
@@ -212,6 +237,8 @@ class PlayerToolService:
             self._get_tool_player_for_query(player_a_query, season_type),
             self._get_tool_player_for_query(player_b_query, season_type),
         )
+        if player_a.player_type != player_b.player_type:
+            raise ValueError("Skater and goalie statistical comparisons are not supported in the same comparison tool.")
         return PlayerComparisonResult(
             player_a=player_a,
             player_b=player_b,
@@ -273,6 +300,60 @@ class PlayerToolService:
             ],
         )
 
+    async def get_goalie_leaderboard(self, query: GoalieLeaderboardQuery) -> GoalieLeaderboardResult:
+        season_id = self._current_nhl_season_id()
+        game_type_id = 2 if query.season_type == "regular_season" else 3
+        payload = await self._get_goalie_leaderboard_payload(season_id, game_type_id)
+
+        category_key, category_label = GOALIE_LEADERBOARD_CATEGORY_MAP[query.category]
+        rows = payload.get(category_key)
+        if not isinstance(rows, list):
+            raise ValueError(
+                f"NHL leaderboard payload did not include category '{category_key}'."
+            )
+
+        leaders: list[GoalieLeaderboardEntry] = []
+        for index, row in enumerate(rows[: query.limit], start=1):
+            if not isinstance(row, dict):
+                continue
+
+            first_name = _default_text(row.get("firstName")) or ""
+            last_name = _default_text(row.get("lastName")) or ""
+            full_name = " ".join(part for part in (first_name, last_name) if part).strip()
+            if not full_name:
+                continue
+
+            value = row.get("value")
+            if not isinstance(value, (int, float)):
+                continue
+
+            player_id = row.get("id")
+            if not isinstance(player_id, int):
+                continue
+
+            leaders.append(
+                GoalieLeaderboardEntry(
+                    rank=index,
+                    nhl_id=player_id,
+                    full_name=full_name,
+                    team_abbrev=str(row.get("teamAbbrev") or "") or None,
+                    position=str(row.get("position") or "") or None,
+                    headshot_url=str(row.get("headshot") or "") or None,
+                    value=value,
+                )
+            )
+
+        return GoalieLeaderboardResult(
+            season_id=season_id,
+            season_type=query.season_type,
+            category=query.category,
+            category_label=category_label,
+            leaders=leaders,
+            limitations=[
+                "This tool returns current-season NHL goalie leaderboard data only.",
+            ],
+        )
+
     async def _with_limit(self, coroutine):
         async with self._semaphore:
             return await coroutine
@@ -283,12 +364,22 @@ class PlayerToolService:
         return int(f"{start_year}{start_year + 1}")
 
     async def _get_skater_leaderboard_payload(self, season_id: int, game_type_id: int) -> dict:
-        cache_key = f"{season_id}:{game_type_id}"
+        cache_key = f"skater:{season_id}:{game_type_id}"
         cached = self._leaderboard_cache.get(cache_key)
         if cached is not None:
             return cached
 
         payload = await self._with_limit(self._nhl_client.get_skater_stats_leaders(season_id, game_type_id))
+        self._leaderboard_cache.set(cache_key, payload, self._settings.player_cache_ttl_seconds)
+        return payload
+
+    async def _get_goalie_leaderboard_payload(self, season_id: int, game_type_id: int) -> dict:
+        cache_key = f"goalie:{season_id}:{game_type_id}"
+        cached = self._leaderboard_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        payload = await self._with_limit(self._nhl_client.get_goalie_stats_leaders(season_id, game_type_id))
         self._leaderboard_cache.set(cache_key, payload, self._settings.player_cache_ttl_seconds)
         return payload
 
@@ -458,12 +549,43 @@ class PlayerToolService:
                 )
             )
 
-        regular_season_stats = self._build_basic_stats(landing, "regular_season")
-        playoff_stats = self._build_basic_stats(landing, "playoffs")
-        selected_stats = self._select_stats_for_context(
-            season_type,
-            regular_season_stats,
-            playoff_stats,
+        player_type = _player_type_from_position(normalized.profile.position)
+        regular_season_stats: BasicStats | None = None
+        playoff_stats: BasicStats | None = None
+        skater_stats: SkaterStats | None = None
+        goalie_stats: GoalieStats | None = None
+        regular_season_skater_stats: SkaterStats | None = None
+        playoff_skater_stats: SkaterStats | None = None
+        regular_season_goalie_stats: GoalieStats | None = None
+        playoff_goalie_stats: GoalieStats | None = None
+        selected_recent_form = RecentForm()
+        goalie_recent_form: GoalieRecentForm | None = None
+
+        if player_type == "goalie":
+            regular_season_goalie_stats = self._build_goalie_stats(landing, "regular_season")
+            playoff_goalie_stats = self._build_goalie_stats(landing, "playoffs")
+            goalie_stats = self._select_goalie_stats_for_context(
+                season_type,
+                regular_season_goalie_stats,
+                playoff_goalie_stats,
+            )
+            goalie_recent_form = self._build_goalie_recent_form(landing)
+        else:
+            regular_season_skater_stats = self._build_skater_stats(landing, "regular_season")
+            playoff_skater_stats = self._build_skater_stats(landing, "playoffs")
+            skater_stats = self._select_skater_stats_for_context(
+                season_type,
+                regular_season_skater_stats,
+                playoff_skater_stats,
+            )
+            regular_season_stats = self._to_basic_stats(regular_season_skater_stats)
+            playoff_stats = self._to_basic_stats(playoff_skater_stats)
+            selected_recent_form = self._build_recent_form(landing)
+
+        selected_stats = (
+            self._to_basic_stats(skater_stats)
+            if skater_stats is not None
+            else BasicStats()
         )
 
         return ToolPlayerData(
@@ -471,11 +593,19 @@ class PlayerToolService:
             profile=normalized.profile,
             contract=normalized.contract,
             active_contract=self._build_active_contract_view(normalized),
+            player_type=player_type,
             stats_context=season_type,
             stats=selected_stats,
             regular_season_stats=regular_season_stats,
             playoff_stats=playoff_stats,
-            recent_form=self._build_recent_form(landing),
+            skater_stats=skater_stats,
+            goalie_stats=goalie_stats,
+            regular_season_skater_stats=regular_season_skater_stats,
+            playoff_skater_stats=playoff_skater_stats,
+            regular_season_goalie_stats=regular_season_goalie_stats,
+            playoff_goalie_stats=playoff_goalie_stats,
+            recent_form=selected_recent_form,
+            goalie_recent_form=goalie_recent_form,
             source_coverage=normalized.source_coverage,
         )
 
@@ -512,7 +642,7 @@ class PlayerToolService:
             rows.append(row)
         return rows
 
-    def _aggregate_basic_stats_from_rows(self, season_id: int, rows: list[dict[str, Any]]) -> BasicStats:
+    def _aggregate_skater_stats_from_rows(self, season_id: int, rows: list[dict[str, Any]]) -> SkaterStats:
         games_played = sum(int(row.get("gamesPlayed", 0) or 0) for row in rows)
         goals = sum(int(row.get("goals", 0) or 0) for row in rows)
         assists = sum(int(row.get("assists", 0) or 0) for row in rows)
@@ -534,7 +664,7 @@ class PlayerToolService:
         avg_toi = _format_toi_seconds(round(weighted_toi / toi_weight)) if toi_weight else None
         shooting_pct = round(goals / shots, 6) if shots > 0 else 0.0 if goals == 0 and shots == 0 else None
 
-        return BasicStats(
+        return SkaterStats(
             season_id=season_id,
             games_played=games_played,
             goals=goals,
@@ -546,20 +676,20 @@ class PlayerToolService:
             avg_toi=avg_toi,
         )
 
-    def _build_basic_stats(
+    def _build_skater_stats(
         self,
         landing: dict,
         season_type: Literal["regular_season", "playoffs"],
-    ) -> BasicStats:
+    ) -> SkaterStats:
         season_id = self._current_season_id(landing)
         game_type_id = 2 if season_type == "regular_season" else 3
         rows = self._current_season_rows(landing, season_id, game_type_id)
         if rows:
-            return self._aggregate_basic_stats_from_rows(season_id, rows)
+            return self._aggregate_skater_stats_from_rows(season_id, rows)
 
         if season_type == "regular_season":
             season_stats = landing.get("featuredStats", {}).get("regularSeason", {}).get("subSeason", {})
-            return BasicStats(
+            return SkaterStats(
                 season_id=season_id,
                 games_played=season_stats.get("gamesPlayed"),
                 goals=season_stats.get("goals"),
@@ -572,9 +702,9 @@ class PlayerToolService:
             )
 
         if season_id is None:
-            return BasicStats()
+            return SkaterStats()
 
-        return BasicStats(
+        return SkaterStats(
             season_id=season_id,
             games_played=0,
             goals=0,
@@ -586,12 +716,117 @@ class PlayerToolService:
             avg_toi=None,
         )
 
-    def _select_stats_for_context(
+    def _to_basic_stats(self, stats: SkaterStats | None) -> BasicStats | None:
+        if stats is None:
+            return None
+        return BasicStats(
+            season_id=stats.season_id,
+            games_played=stats.games_played,
+            goals=stats.goals,
+            assists=stats.assists,
+            points=stats.points,
+            shots=stats.shots,
+            shooting_pct=stats.shooting_pct,
+            plus_minus=stats.plus_minus,
+            avg_toi=stats.avg_toi,
+        )
+
+    def _aggregate_goalie_stats_from_rows(self, season_id: int, rows: list[dict[str, Any]]) -> GoalieStats:
+        games_played = sum(int(row.get("gamesPlayed", 0) or 0) for row in rows)
+        wins = sum(int(row.get("wins", 0) or 0) for row in rows)
+        losses = sum(int(row.get("losses", 0) or 0) for row in rows)
+        ot_losses = sum(int(row.get("otLosses", 0) or 0) for row in rows)
+        shutouts = sum(int(row.get("shutouts", 0) or 0) for row in rows)
+        shots_against = sum(int(row.get("shotsAgainst", 0) or 0) for row in rows)
+        goals_against = sum(int(row.get("goalsAgainst", 0) or 0) for row in rows)
+
+        total_toi_seconds = 0
+        for row in rows:
+            total_toi_seconds += _parse_toi_seconds(str(row.get("timeOnIce") or "") or None) or 0
+
+        save_pct = None
+        if shots_against > 0:
+            save_pct = round((shots_against - goals_against) / shots_against, 6)
+
+        goals_against_avg = None
+        if total_toi_seconds > 0:
+            goals_against_avg = round((goals_against * 3600) / total_toi_seconds, 6)
+
+        return GoalieStats(
+            season_id=season_id,
+            games_played=games_played,
+            wins=wins,
+            losses=losses,
+            ot_losses=ot_losses,
+            save_pct=save_pct,
+            goals_against_avg=goals_against_avg,
+            shutouts=shutouts,
+            shots_against=shots_against if shots_against > 0 else None,
+            goals_against=goals_against if goals_against > 0 else 0 if games_played > 0 else None,
+            time_on_ice=_format_toi_seconds(total_toi_seconds) if total_toi_seconds > 0 else None,
+        )
+
+    def _build_goalie_stats(
+        self,
+        landing: dict,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> GoalieStats:
+        season_id = self._current_season_id(landing)
+        game_type_id = 2 if season_type == "regular_season" else 3
+        rows = self._current_season_rows(landing, season_id, game_type_id)
+        if rows:
+            return self._aggregate_goalie_stats_from_rows(season_id, rows)
+
+        featured_key = "regularSeason" if season_type == "regular_season" else "playoffs"
+        season_stats = landing.get("featuredStats", {}).get(featured_key, {}).get("subSeason", {})
+        if season_stats:
+            return GoalieStats(
+                season_id=season_id,
+                games_played=season_stats.get("gamesPlayed"),
+                wins=season_stats.get("wins"),
+                losses=season_stats.get("losses"),
+                ot_losses=season_stats.get("otLosses"),
+                save_pct=season_stats.get("savePctg"),
+                goals_against_avg=season_stats.get("goalsAgainstAvg"),
+                shutouts=season_stats.get("shutouts"),
+                shots_against=None,
+                goals_against=None,
+                time_on_ice=None,
+            )
+
+        if season_id is None:
+            return GoalieStats()
+
+        return GoalieStats(
+            season_id=season_id,
+            games_played=0,
+            wins=0,
+            losses=0,
+            ot_losses=0,
+            save_pct=0.0,
+            goals_against_avg=0.0,
+            shutouts=0,
+            shots_against=0,
+            goals_against=0,
+            time_on_ice=None,
+        )
+
+    def _select_skater_stats_for_context(
         self,
         season_type: Literal["regular_season", "playoffs", "both"],
-        regular_season_stats: BasicStats,
-        playoff_stats: BasicStats,
-    ) -> BasicStats:
+        regular_season_stats: SkaterStats,
+        playoff_stats: SkaterStats,
+    ) -> SkaterStats:
+        if season_type == "playoffs":
+            return playoff_stats
+        return regular_season_stats
+
+    def _select_goalie_stats_for_context(
+        self,
+        season_type: Literal["regular_season", "playoffs", "both"],
+        regular_season_stats: GoalieStats,
+        playoff_stats: GoalieStats,
+    ) -> GoalieStats:
         if season_type == "playoffs":
             return playoff_stats
         return regular_season_stats
@@ -603,6 +838,48 @@ class PlayerToolService:
             goals=sum(int(game.get("goals", 0) or 0) for game in last_games),
             assists=sum(int(game.get("assists", 0) or 0) for game in last_games),
             points=sum(int(game.get("points", 0) or 0) for game in last_games),
+        )
+
+    def _build_goalie_recent_form(self, landing: dict) -> GoalieRecentForm:
+        last_games = [game for game in landing.get("last5Games", []) if isinstance(game, dict)]
+        wins = 0
+        losses = 0
+        ot_losses = 0
+        shots_against = 0
+        goals_against = 0
+        total_toi_seconds = 0
+
+        for game in last_games:
+            decision = str(game.get("decision") or "").upper()
+            if decision == "W":
+                wins += 1
+            elif decision == "L":
+                losses += 1
+            elif decision == "OTL":
+                ot_losses += 1
+
+            shots_against += int(game.get("shotsAgainst", 0) or 0)
+            goals_against += int(game.get("goalsAgainst", 0) or 0)
+            total_toi_seconds += _parse_toi_seconds(str(game.get("toi") or "") or None) or 0
+
+        save_pct = None
+        if shots_against > 0:
+            save_pct = round((shots_against - goals_against) / shots_against, 6)
+
+        goals_against_avg = None
+        if total_toi_seconds > 0:
+            goals_against_avg = round((goals_against * 3600) / total_toi_seconds, 6)
+
+        return GoalieRecentForm(
+            games=len(last_games),
+            wins=wins,
+            losses=losses,
+            ot_losses=ot_losses,
+            save_pct=save_pct,
+            goals_against_avg=goals_against_avg,
+            shots_against=shots_against,
+            goals_against=goals_against,
+            time_on_ice=_format_toi_seconds(total_toi_seconds) if total_toi_seconds > 0 else None,
         )
 
     def _build_active_contract_view(self, normalized: NormalizedPlayer) -> ActiveContractView:
@@ -686,6 +963,52 @@ class PlayerToolService:
             return False
         if filters.clause_required and not player.active_contract.has_clause:
             return False
+
+        uses_goalie_metrics = any(
+            value is not None
+            for value in (filters.wins_min, filters.save_pct_min, filters.gaa_max, filters.shutouts_min)
+        ) or filters.sort_by in {"wins_desc", "save_pct_desc", "gaa_asc", "shutouts_desc"}
+        uses_skater_metrics = any(
+            value is not None
+            for value in (filters.goals_min, filters.assists_min, filters.points_min, filters.shots_min)
+        )
+
+        if player.player_type == "goalie":
+            if uses_skater_metrics:
+                return False
+            goalie_stats = player.goalie_stats
+            if filters.games_played_min is not None and (
+                goalie_stats is None
+                or goalie_stats.games_played is None
+                or goalie_stats.games_played < filters.games_played_min
+            ):
+                return False
+            if filters.wins_min is not None and (
+                goalie_stats is None or goalie_stats.wins is None or goalie_stats.wins < filters.wins_min
+            ):
+                return False
+            if filters.save_pct_min is not None and (
+                goalie_stats is None
+                or goalie_stats.save_pct is None
+                or goalie_stats.save_pct < filters.save_pct_min
+            ):
+                return False
+            if filters.gaa_max is not None and (
+                goalie_stats is None
+                or goalie_stats.goals_against_avg is None
+                or goalie_stats.goals_against_avg > filters.gaa_max
+            ):
+                return False
+            if filters.shutouts_min is not None and (
+                goalie_stats is None
+                or goalie_stats.shutouts is None
+                or goalie_stats.shutouts < filters.shutouts_min
+            ):
+                return False
+            return True
+
+        if uses_goalie_metrics:
+            return False
         if filters.games_played_min is not None and (
             player.stats.games_played is None or player.stats.games_played < filters.games_played_min
         ):
@@ -719,57 +1042,126 @@ class PlayerToolService:
                 else 10**9
             )
 
+        def skater_points_value(player: ToolPlayerData) -> int:
+            return player.stats.points or 0
+
+        def skater_goals_value(player: ToolPlayerData) -> int:
+            return player.stats.goals or 0
+
+        def goalie_wins_value(player: ToolPlayerData) -> int:
+            return player.goalie_stats.wins if player.goalie_stats and player.goalie_stats.wins is not None else -1
+
+        def goalie_save_pct_value(player: ToolPlayerData) -> float:
+            return (
+                player.goalie_stats.save_pct
+                if player.goalie_stats and player.goalie_stats.save_pct is not None
+                else -1.0
+            )
+
+        def goalie_gaa_value(player: ToolPlayerData) -> float:
+            return (
+                player.goalie_stats.goals_against_avg
+                if player.goalie_stats and player.goalie_stats.goals_against_avg is not None
+                else 10**9
+            )
+
+        def goalie_shutouts_value(player: ToolPlayerData) -> int:
+            return (
+                player.goalie_stats.shutouts
+                if player.goalie_stats and player.goalie_stats.shutouts is not None
+                else -1
+            )
+
         if sort_by == "goals_desc":
-            return sorted(players, key=lambda player: (-(player.stats.goals or 0), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (-skater_goals_value(player), -skater_points_value(player)))
+        if sort_by == "wins_desc":
+            goalies = [player for player in players if player.player_type == "goalie"]
+            return sorted(goalies, key=lambda player: (-goalie_wins_value(player), -goalie_save_pct_value(player)))
+        if sort_by == "save_pct_desc":
+            goalies = [player for player in players if player.player_type == "goalie"]
+            return sorted(goalies, key=lambda player: (-goalie_save_pct_value(player), -goalie_wins_value(player)))
+        if sort_by == "gaa_asc":
+            goalies = [player for player in players if player.player_type == "goalie"]
+            return sorted(goalies, key=lambda player: (goalie_gaa_value(player), -goalie_wins_value(player)))
+        if sort_by == "shutouts_desc":
+            goalies = [player for player in players if player.player_type == "goalie"]
+            return sorted(goalies, key=lambda player: (-goalie_shutouts_value(player), -goalie_wins_value(player)))
         if sort_by == "age_asc":
-            return sorted(players, key=lambda player: (age_value(player), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (age_value(player), -skater_points_value(player), -goalie_wins_value(player)))
         if sort_by == "age_desc":
-            return sorted(players, key=lambda player: (-age_value(player), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (-age_value(player), -skater_points_value(player), -goalie_wins_value(player)))
         if sort_by == "aav_asc":
-            return sorted(players, key=lambda player: (aav_value(player), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (aav_value(player), -skater_points_value(player), -goalie_wins_value(player)))
         if sort_by == "aav_desc":
-            return sorted(players, key=lambda player: (-aav_value(player), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (-aav_value(player), -skater_points_value(player), -goalie_wins_value(player)))
         if sort_by == "term_asc":
-            return sorted(players, key=lambda player: (term_value(player), -(player.stats.points or 0)))
+            return sorted(players, key=lambda player: (term_value(player), -skater_points_value(player), -goalie_wins_value(player)))
         if sort_by == "term_desc":
-            return sorted(players, key=lambda player: (-term_value(player), -(player.stats.points or 0)))
-        return sorted(players, key=lambda player: (-(player.stats.points or 0), -(player.stats.goals or 0)))
+            return sorted(players, key=lambda player: (-term_value(player), -skater_points_value(player), -goalie_wins_value(player)))
+        return sorted(players, key=lambda player: (-skater_points_value(player), -skater_goals_value(player), -goalie_wins_value(player)))
 
     def _build_comparison_facts(
         self,
         player_a: ToolPlayerData,
         player_b: ToolPlayerData,
     ) -> list[ComparisonFact]:
-        return [
+        shared_facts = [
             self._comparison_fact("team", player_a.profile.team_abbrev, player_b.profile.team_abbrev),
             self._comparison_fact("position", player_a.profile.position, player_b.profile.position),
             self._comparison_fact("shoots_catches", player_a.profile.shoots_catches, player_b.profile.shoots_catches),
             self._comparison_fact("age", _calculate_age(player_a.profile.birth_date), _calculate_age(player_b.profile.birth_date)),
-            self._comparison_fact("games_played", player_a.stats.games_played, player_b.stats.games_played),
-            self._comparison_fact("goals", player_a.stats.goals, player_b.stats.goals, higher_is_better=True),
-            self._comparison_fact("assists", player_a.stats.assists, player_b.stats.assists, higher_is_better=True),
-            self._comparison_fact("points", player_a.stats.points, player_b.stats.points, higher_is_better=True),
-            self._comparison_fact(
-                "goals_per_game",
-                _safe_rate(player_a.stats.goals, player_a.stats.games_played),
-                _safe_rate(player_b.stats.goals, player_b.stats.games_played),
-                higher_is_better=True,
-            ),
-            self._comparison_fact(
-                "assists_per_game",
-                _safe_rate(player_a.stats.assists, player_a.stats.games_played),
-                _safe_rate(player_b.stats.assists, player_b.stats.games_played),
-                higher_is_better=True,
-            ),
-            self._comparison_fact(
-                "points_per_game",
-                _safe_rate(player_a.stats.points, player_a.stats.games_played),
-                _safe_rate(player_b.stats.points, player_b.stats.games_played),
-                higher_is_better=True,
-            ),
-            self._comparison_fact("shots", player_a.stats.shots, player_b.stats.shots, higher_is_better=True),
-            self._comparison_fact("shooting_pct", player_a.stats.shooting_pct, player_b.stats.shooting_pct, higher_is_better=True),
-            self._comparison_fact("avg_toi", player_a.stats.avg_toi, player_b.stats.avg_toi),
+        ]
+
+        if player_a.player_type == "goalie" and player_b.player_type == "goalie":
+            player_a_goalie = player_a.goalie_stats or GoalieStats()
+            player_b_goalie = player_b.goalie_stats or GoalieStats()
+            stat_facts = [
+                self._comparison_fact("games_played", player_a_goalie.games_played, player_b_goalie.games_played),
+                self._comparison_fact("wins", player_a_goalie.wins, player_b_goalie.wins, higher_is_better=True),
+                self._comparison_fact("losses", player_a_goalie.losses, player_b_goalie.losses, lower_is_better=True),
+                self._comparison_fact("ot_losses", player_a_goalie.ot_losses, player_b_goalie.ot_losses, lower_is_better=True),
+                self._comparison_fact("save_pct", player_a_goalie.save_pct, player_b_goalie.save_pct, higher_is_better=True),
+                self._comparison_fact(
+                    "goals_against_avg",
+                    player_a_goalie.goals_against_avg,
+                    player_b_goalie.goals_against_avg,
+                    lower_is_better=True,
+                ),
+                self._comparison_fact("shutouts", player_a_goalie.shutouts, player_b_goalie.shutouts, higher_is_better=True),
+                self._comparison_fact("shots_against", player_a_goalie.shots_against, player_b_goalie.shots_against),
+                self._comparison_fact("goals_against", player_a_goalie.goals_against, player_b_goalie.goals_against, lower_is_better=True),
+                self._comparison_fact("time_on_ice", player_a_goalie.time_on_ice, player_b_goalie.time_on_ice),
+            ]
+        else:
+            stat_facts = [
+                self._comparison_fact("games_played", player_a.stats.games_played, player_b.stats.games_played),
+                self._comparison_fact("goals", player_a.stats.goals, player_b.stats.goals, higher_is_better=True),
+                self._comparison_fact("assists", player_a.stats.assists, player_b.stats.assists, higher_is_better=True),
+                self._comparison_fact("points", player_a.stats.points, player_b.stats.points, higher_is_better=True),
+                self._comparison_fact(
+                    "goals_per_game",
+                    _safe_rate(player_a.stats.goals, player_a.stats.games_played),
+                    _safe_rate(player_b.stats.goals, player_b.stats.games_played),
+                    higher_is_better=True,
+                ),
+                self._comparison_fact(
+                    "assists_per_game",
+                    _safe_rate(player_a.stats.assists, player_a.stats.games_played),
+                    _safe_rate(player_b.stats.assists, player_b.stats.games_played),
+                    higher_is_better=True,
+                ),
+                self._comparison_fact(
+                    "points_per_game",
+                    _safe_rate(player_a.stats.points, player_a.stats.games_played),
+                    _safe_rate(player_b.stats.points, player_b.stats.games_played),
+                    higher_is_better=True,
+                ),
+                self._comparison_fact("shots", player_a.stats.shots, player_b.stats.shots, higher_is_better=True),
+                self._comparison_fact("shooting_pct", player_a.stats.shooting_pct, player_b.stats.shooting_pct, higher_is_better=True),
+                self._comparison_fact("avg_toi", player_a.stats.avg_toi, player_b.stats.avg_toi),
+            ]
+
+        return shared_facts + stat_facts + [
             self._comparison_fact("current_aav", player_a.active_contract.current_aav, player_b.active_contract.current_aav, lower_is_better=True),
             self._comparison_fact("current_cap_hit", player_a.active_contract.current_cap_hit, player_b.active_contract.current_cap_hit, lower_is_better=True),
             self._comparison_fact("years_remaining", player_a.active_contract.years_remaining, player_b.active_contract.years_remaining, lower_is_better=True),
