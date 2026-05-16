@@ -328,8 +328,8 @@ function formatStatValue(value: string | number | boolean | null): string {
 function formatCategoryLabel(category: string): string {
   const customLabels: Record<string, string> = {
     on_ice_expected_goals_pct: "On-Ice xG%",
-    relative_expected_goals_pct: "Relative xG%",
-    on_ice_corsi_pct: "On-Ice Corsi%",
+    relative_expected_goals_pct: "Rel.xG%",
+    on_ice_corsi_pct: "Corsi%",
     goals_saved_above_expected: "Goals Saved Above Expected",
     goals_saved_above_expected_per_60: "Goals Saved Above Expected / 60",
   };
@@ -516,8 +516,8 @@ function MoneyPuckPanel(props: { player: ToolPlayerData }) {
       {player.moneypuck_coverage.available && analytics ? (
         <>
           <p>On-Ice xG%: {formatPct(analytics.on_ice_expected_goals_pct)}</p>
-          <p>Relative xG%: {formatSignedDecimal((analytics.relative_expected_goals_pct ?? 0) * 100, 1)}%</p>
-          <p>On-Ice Corsi%: {formatPct(analytics.on_ice_corsi_pct)}</p>
+          <p>Rel. xG%: {formatSignedDecimal((analytics.relative_expected_goals_pct ?? 0) * 100, 1)}%</p>
+          <p>Corsi%: {formatPct(analytics.on_ice_corsi_pct)}</p>
         </>
       ) : (
         <p>Underlying skater analytics are not available for this player.</p>
@@ -608,6 +608,9 @@ function PlayerCard(props: { player: ToolPlayerData }) {
             className={player.source_coverage.capwages_available ? "badge badge-on" : "badge"}
           >
             CapWages
+          </span>
+          <span className={player.moneypuck_coverage.available ? "badge badge-on" : "badge"}>
+            MoneyPuck
           </span>
         </div>
       </div>
@@ -1191,7 +1194,7 @@ export default function App() {
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>
-        <p className="hero-source-note">Data from NHL API and CapWages</p>
+        <p className="hero-source-note">Data from NHL API, CapWages, & MoneyPuck</p>
       </section>
 
       <section className="panel">
