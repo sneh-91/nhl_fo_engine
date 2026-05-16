@@ -23,6 +23,11 @@ type SourceCoverage = {
   notes: MergeNote[];
 };
 
+type TeamSourceCoverage = {
+  nhl_available: boolean;
+  notes: MergeNote[];
+};
+
 type PlayerIdentity = {
   nhl_id: number | null;
   full_name: string;
@@ -126,6 +131,56 @@ type GoalieRecentForm = {
   time_on_ice: string | null;
 };
 
+type TeamIdentity = {
+  team_abbrev: string;
+  team_name: string | null;
+  team_id: number | null;
+  team_logo_url: string | null;
+};
+
+type TeamStats = {
+  season_id?: number | null;
+  season_type: "regular_season" | "playoffs" | null;
+  games_played: number | null;
+  wins: number | null;
+  losses: number | null;
+  ot_losses: number | null;
+  points: number | null;
+  points_pct: number | null;
+  goals_for: number | null;
+  goals_against: number | null;
+  power_play_pct: number | null;
+  penalty_kill_pct: number | null;
+  goals_for_pct: number | null;
+  expected_goals_for_pct: number | null;
+  corsi_pct: number | null;
+  pdo: number | null;
+};
+
+type TeamAnalytics = {
+  season_id?: number | null;
+  season_type: "regular_season" | "playoffs" | null;
+  team_abbrev: string | null;
+  situation: "all" | "5on5" | "5on4" | "4on5" | "other" | null;
+  games_played: number | null;
+  goals_for: number | null;
+  goals_against: number | null;
+  power_play_pct: number | null;
+  penalty_kill_pct: number | null;
+  goals_for_pct: number | null;
+  expected_goals_for_pct: number | null;
+  corsi_pct: number | null;
+  pdo: number | null;
+};
+
+type ToolTeamData = {
+  identity: TeamIdentity;
+  stats: TeamStats;
+  moneypuck_analytics: TeamAnalytics | null;
+  source_coverage: TeamSourceCoverage;
+  moneypuck_coverage: MoneyPuckCoverage;
+};
+
 type ToolPlayerData = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
@@ -224,6 +279,10 @@ type PlayerSummaryResult = {
   player: ToolPlayerData;
 };
 
+type TeamSummaryResult = {
+  team: ToolTeamData;
+};
+
 type ToolInvocation = {
   tool_name: string;
   arguments: Record<string, unknown>;
@@ -236,7 +295,8 @@ type ToolInvocation = {
       | ComparisonResult
       | PlayerProfileToolResult
       | PlayerContractToolResult
-      | PlayerSummaryResult;
+      | PlayerSummaryResult
+      | TeamSummaryResult;
     error?: {
       type: string;
       message: string;
@@ -383,6 +443,10 @@ function supportNotes(sourceCoverage: SourceCoverage): string[] {
   return sourceCoverage.notes.map((note) => note.detail);
 }
 
+function teamSupportNotes(sourceCoverage: TeamSourceCoverage): string[] {
+  return sourceCoverage.notes.map((note) => note.detail);
+}
+
 function moneypuckNotes(coverage: MoneyPuckCoverage): string[] {
   return coverage.notes.map((note) => note.detail);
 }
@@ -501,6 +565,70 @@ function moneyPuckLabel(coverage: MoneyPuckCoverage): string {
   return context
     ? `Underlying analytics ${coverage.situation} (${context})`
     : `Underlying analytics ${coverage.situation}`;
+}
+
+const teamLogoByAbbrev: Record<string, string> = {
+  ANA: "/teams/anaheim-ducks-logo.svg",
+  BOS: "/teams/boston-bruins-logo.svg",
+  BUF: "/teams/buffalo-sabres-logo.svg",
+  CGY: "/teams/calgary-flames-logo.svg",
+  CAR: "/teams/carolina-hurricanes-logo.svg",
+  CHI: "/teams/chicago-blackhawks-logo.svg",
+  COL: "/teams/colorado-avalanche-logo.svg",
+  CBJ: "/teams/columbus-blue-jackets-logo.svg",
+  DAL: "/teams/dallas-stars-logo.svg",
+  DET: "/teams/detroit-red-wings-logo.svg",
+  EDM: "/teams/edmonton-oilers-logo.svg",
+  FLA: "/teams/florida-panthers-logo.svg",
+  LAK: "/teams/los-angeles-kings-logo.svg",
+  MIN: "/teams/minnesota-wild-logo.svg",
+  MTL: "/teams/montreal-canadiens-logo.svg",
+  NSH: "/teams/nashville-predators-logo.svg",
+  NYI: "/teams/new-york-islanders-logo.svg",
+  NYR: "/teams/new-york-rangers-logo.svg",
+  OTT: "/teams/ottawa-senators-logo.svg",
+  PHI: "/teams/philadelphia-flyers-logo.svg",
+  PIT: "/teams/pittsburgh-penguins-logo.svg",
+  SEA: "/teams/seattle-kraken-logo.svg",
+  STL: "/teams/st-louis-blues-logo.svg",
+  TBL: "/teams/tampa-bay-lightning-logo.svg",
+  TOR: "/teams/toronto-maple-leafs-logo.svg",
+  UTA: "/teams/utah-mammoth-logo.svg",
+  VAN: "/teams/vancouver-canucks-logo.svg",
+  VGK: "/teams/vegas-golden-knights-logo.svg",
+  WSH: "/teams/washington-capitals-logo.svg",
+  WPG: "/teams/winnipeg-jets-logo.svg",
+};
+
+function teamLogoSrc(team: TeamIdentity): string {
+  return teamLogoByAbbrev[team.team_abbrev] ?? "/teams/nhl-logo.svg";
+}
+
+function teamStatsRows(stats: TeamStats): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string | null }> = [
+    { label: "Games", value: formatStatValue(stats.games_played) },
+    { label: "W", value: formatStatValue(stats.wins) },
+    { label: "L", value: formatStatValue(stats.losses) },
+    { label: "OTL", value: stats.ot_losses !== null ? formatStatValue(stats.ot_losses) : null },
+    { label: "PTS", value: stats.points !== null ? formatStatValue(stats.points) : null },
+    { label: "P%", value: stats.points_pct !== null ? formatPct(stats.points_pct) : null },
+    { label: "GF", value: formatStatValue(stats.goals_for) },
+    { label: "GA", value: formatStatValue(stats.goals_against) },
+    { label: "PP%", value: stats.power_play_pct !== null ? formatPct(stats.power_play_pct) : null },
+    { label: "PK%", value: stats.penalty_kill_pct !== null ? formatPct(stats.penalty_kill_pct) : null },
+    { label: "GF%", value: stats.goals_for_pct !== null ? formatPct(stats.goals_for_pct) : null },
+    { label: "xGF%", value: stats.expected_goals_for_pct !== null ? formatPct(stats.expected_goals_for_pct) : null },
+    { label: "Corsi%", value: stats.corsi_pct !== null ? formatPct(stats.corsi_pct) : null },
+    { label: "PDO", value: stats.pdo !== null ? formatDecimal(stats.pdo, 3) : null },
+  ];
+
+  return rows
+    .filter((row): row is { label: string; value: string } => row.value !== null)
+    .map((row) => ({ label: row.label, value: row.value }));
+}
+
+function teamSeasonLabel(seasonType: "regular_season" | "playoffs" | null): string {
+  return seasonType === "playoffs" ? "Playoff team line" : "Season team line";
 }
 
 function MoneyPuckPanel(props: { player: ToolPlayerData }) {
@@ -674,6 +802,60 @@ function PlayerCard(props: { player: ToolPlayerData }) {
       {[...supportNotes(player.source_coverage), ...moneypuckNotes(player.moneypuck_coverage)].length > 0 ? (
         <ul className="note-list">
           {[...supportNotes(player.source_coverage), ...moneypuckNotes(player.moneypuck_coverage)].map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
+
+function TeamCard(props: { team: ToolTeamData }) {
+  const { team } = props;
+  const notes = [...teamSupportNotes(team.source_coverage), ...moneypuckNotes(team.moneypuck_coverage)];
+
+  return (
+    <article className="team-card">
+      <div className="team-card-header">
+        <div className="team-card-brand">
+          <img
+            className="team-logo"
+            src={teamLogoSrc(team.identity)}
+            alt={`${team.identity.team_name ?? team.identity.team_abbrev} logo`}
+          />
+          <div>
+            <p className="section-kicker">Team</p>
+            <h4>{team.identity.team_name ?? team.identity.team_abbrev}</h4>
+            <p className="player-subtitle">
+              {team.identity.team_abbrev} - {team.stats.season_type === "playoffs" ? "Playoffs" : "Regular season"}
+            </p>
+          </div>
+        </div>
+        <div className="source-badges">
+          <span className={team.source_coverage.nhl_available ? "badge badge-on" : "badge"}>
+            NHL
+          </span>
+          <span className={team.moneypuck_coverage.available ? "badge badge-on" : "badge"}>
+            MoneyPuck
+          </span>
+        </div>
+      </div>
+
+      <div className="micro-panel team-summary-panel">
+        <p className="micro-label">{teamSeasonLabel(team.stats.season_type)}</p>
+        <div className="team-stats-grid">
+          {teamStatsRows(team.stats).map((row) => (
+            <div key={row.label} className="team-stat-cell">
+              <span className="team-stat-label">{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {notes.length > 0 ? (
+        <ul className="note-list">
+          {notes.map((note) => (
             <li key={note}>{note}</li>
           ))}
         </ul>
@@ -896,6 +1078,19 @@ function PlayerDetailsView(props: { result: PlayerSummaryResult }) {
   );
 }
 
+function TeamDetailsView(props: { result: TeamSummaryResult }) {
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>Team details</h3>
+        </div>
+      </div>
+      <TeamCard team={props.result.team} />
+    </section>
+  );
+}
+
 function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
   return {
     identity: result.identity,
@@ -1093,6 +1288,15 @@ function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
               <PlayerDetailsView
                 key={key}
                 result={toolInvocation.output.result as PlayerSummaryResult}
+              />
+            );
+          }
+
+          if (toolInvocation.tool_name === "get_team_summary_data") {
+            return (
+              <TeamDetailsView
+                key={key}
+                result={toolInvocation.output.result as TeamSummaryResult}
               />
             );
           }
