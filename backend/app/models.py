@@ -122,7 +122,10 @@ class ToolPlayerData(BaseModel):
     profile: PlayerProfile
     contract: ContractSnapshot
     active_contract: ActiveContractView
+    stats_context: Literal["regular_season", "playoffs", "both"] = "regular_season"
     stats: BasicStats = Field(default_factory=BasicStats)
+    regular_season_stats: BasicStats | None = None
+    playoff_stats: BasicStats | None = None
     recent_form: RecentForm = Field(default_factory=RecentForm)
     source_coverage: SourceCoverage
 
@@ -132,6 +135,7 @@ class PlayerToolQuery(BaseModel):
 
     player: str | None = None
     nhl_id: int | None = None
+    season_type: Literal["regular_season", "playoffs", "both"] = "regular_season"
 
     @model_validator(mode="after")
     def validate_identifier(self) -> "PlayerToolQuery":
@@ -144,6 +148,7 @@ class PlayerSearchFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     player: str | None = None
+    season_type: Literal["regular_season", "playoffs"] = "regular_season"
     position: str | None = None
     shoots_catches: Literal["L", "R"] | None = None
     team: str | None = None
@@ -176,7 +181,10 @@ class PlayerSearchFilters(BaseModel):
 class PlayerProfileToolResult(BaseModel):
     identity: PlayerIdentity
     profile: PlayerProfile
+    stats_context: Literal["regular_season", "playoffs", "both"] = "regular_season"
     stats: BasicStats = Field(default_factory=BasicStats)
+    regular_season_stats: BasicStats | None = None
+    playoff_stats: BasicStats | None = None
     recent_form: RecentForm = Field(default_factory=RecentForm)
     source_coverage: SourceCoverage
     limitations: list[str] = Field(default_factory=list)
@@ -224,6 +232,7 @@ class PlayerComparisonQuery(BaseModel):
     player_a_nhl_id: int | None = None
     player_b: str | None = None
     player_b_nhl_id: int | None = None
+    season_type: Literal["regular_season", "playoffs"] = "regular_season"
 
     @model_validator(mode="after")
     def validate_players(self) -> "PlayerComparisonQuery":
@@ -280,7 +289,8 @@ class ApiErrorResponse(BaseModel):
 
 class OrchestratorDiagnosticsResponse(BaseModel):
     app_version: str
-    openai_model: str
+    openai_answer_model: str
+    openai_classifier_model: str
     openai_configured: bool
     openai_max_tool_rounds: int
     openai_max_output_tokens: int

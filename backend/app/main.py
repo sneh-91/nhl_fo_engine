@@ -91,7 +91,8 @@ async def healthcheck() -> dict[str, str | bool | float]:
         "nhl_api_base_url": str(settings.nhl_api_base_url),
         "capwages_api_base_url": str(settings.capwages_api_base_url),
         "source_timeout_seconds": settings.source_request_timeout_seconds,
-        "openai_model": settings.openai_model,
+        "openai_answer_model": settings.openai_answer_model,
+        "openai_classifier_model": settings.openai_classifier_model,
         "openai_configured": bool(settings.openai_api_key),
         "capwages_configured": bool(settings.capwages_api_key),
         "ask_route_enabled": True,
@@ -105,7 +106,8 @@ async def healthcheck() -> dict[str, str | bool | float]:
 async def orchestrator_diagnostics() -> OrchestratorDiagnosticsResponse:
     return OrchestratorDiagnosticsResponse(
         app_version=settings.app_version,
-        openai_model=settings.openai_model,
+        openai_answer_model=settings.openai_answer_model,
+        openai_classifier_model=settings.openai_classifier_model,
         openai_configured=bool(settings.openai_api_key),
         openai_max_tool_rounds=settings.openai_max_tool_rounds,
         openai_max_output_tokens=settings.openai_max_output_tokens,

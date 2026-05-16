@@ -41,6 +41,10 @@ Hard rules:
 - If answer to question depends on facts the tools cannot provide, say what is missing plainly instead of pretending certainty.
 - Use the tool outputs as the source of truth.
 - If the user is comparing two players or asking who had the better season, use compare_players rather than separate summary calls.
+- For season-stat questions, set the tool argument season_type explicitly.
+- Use season_type=regular_season by default.
+- Use season_type=playoffs only when the user explicitly needs playoff or postseason stats.
+- Use season_type=both only when the user explicitly asks for both regular-season and playoff stats in the same answer.
 
 Output style:
 - Keep the answer concise and direct.
@@ -114,7 +118,7 @@ class HockeyOpsOrchestrator:
             function_calls = [item for item in response.output if getattr(item, "type", None) == "function_call"]
             if not function_calls:
                 return OrchestratedAnswerResult(
-                    model=self._settings.openai_model,
+                    model=self._settings.openai_answer_model,
                     answer_text=self._clean_answer_text(response.output_text),
                     tool_invocations=tool_invocations,
                     limitations=self._dedupe_limitations(limitations),
@@ -153,7 +157,7 @@ class HockeyOpsOrchestrator:
             )
 
         request: dict[str, Any] = {
-            "model": self._settings.openai_model,
+            "model": self._settings.openai_answer_model,
             "instructions": SYSTEM_PROMPT,
             "input": input_items,
             "tools": self._tool_definitions(),
@@ -171,7 +175,7 @@ class HockeyOpsOrchestrator:
             )
 
         response = await self._client.responses.create(
-            model=self._settings.openai_model,
+            model=self._settings.openai_classifier_model,
             instructions=SCOPE_CLASSIFIER_PROMPT,
             input=[{"role": "user", "content": question}],
             max_output_tokens=120,
@@ -291,6 +295,7 @@ class HockeyOpsOrchestrator:
                 "name": "search_players",
                 "description": (
                     "Search the current active NHL roster universe using factual NHL and CapWages filters. "
+                    "Stat filters and ranking use the requested season_type. "
                     "Use this for discovery questions, candidate lists, age/team/position/contract buckets, "
                     "or when the user asks for players matching a profile."
                 ),
@@ -302,6 +307,7 @@ class HockeyOpsOrchestrator:
                 "name": "get_player_profile",
                 "description": (
                     "Fetch one player's NHL profile, identity, season stats, and recent form. "
+                    "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines. "
                     "Use this for factual player-summary questions when contract detail is not the main focus."
                 ),
                 "strict": True,
@@ -320,7 +326,8 @@ class HockeyOpsOrchestrator:
                 "type": "function",
                 "name": "get_player_summary_data",
                 "description": (
-                    "Fetch one merged player object combining NHL profile/stats with CapWages contract data."
+                    "Fetch one merged player object combining NHL profile/stats with CapWages contract data. "
+                    "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines."
                 ),
                 "strict": True,
                 "parameters": self._player_query_schema(),
@@ -329,7 +336,8 @@ class HockeyOpsOrchestrator:
                 "type": "function",
                 "name": "compare_players",
                 "description": (
-                    "Compare two current NHL roster players side by side using factual NHL and CapWages data."
+                    "Compare two current NHL roster players side by side using factual NHL and CapWages data. "
+                    "Set season_type to playoffs when the comparison should use playoff stats instead of regular-season stats."
                 ),
                 "strict": True,
                 "parameters": self._player_comparison_schema(),
@@ -343,8 +351,12 @@ class HockeyOpsOrchestrator:
             "properties": {
                 "player": {"type": ["string", "null"]},
                 "nhl_id": {"type": ["integer", "null"]},
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs", "both"],
+                },
             },
-            "required": ["player", "nhl_id"],
+            "required": ["player", "nhl_id", "season_type"],
         }
 
     def _player_comparison_schema(self) -> dict[str, Any]:
@@ -356,12 +368,17 @@ class HockeyOpsOrchestrator:
                 "player_a_nhl_id": {"type": ["integer", "null"]},
                 "player_b": {"type": ["string", "null"]},
                 "player_b_nhl_id": {"type": ["integer", "null"]},
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs"],
+                },
             },
             "required": [
                 "player_a",
                 "player_a_nhl_id",
                 "player_b",
                 "player_b_nhl_id",
+                "season_type",
             ],
         }
 
@@ -371,6 +388,10 @@ class HockeyOpsOrchestrator:
             "additionalProperties": False,
             "properties": {
                 "player": {"type": ["string", "null"]},
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs"],
+                },
                 "position": {"type": ["string", "null"]},
                 "shoots_catches": {"type": ["string", "null"], "enum": ["L", "R", None]},
                 "team": {"type": ["string", "null"]},
@@ -404,6 +425,7 @@ class HockeyOpsOrchestrator:
             },
             "required": [
                 "player",
+                "season_type",
                 "position",
                 "shoots_catches",
                 "team",
@@ -449,6 +471,7 @@ class HockeyOpsOrchestrator:
                 result = await self._tool_service.compare_players(
                     PlayerToolQuery(player=query.player_a, nhl_id=query.player_a_nhl_id),
                     PlayerToolQuery(player=query.player_b, nhl_id=query.player_b_nhl_id),
+                    query.season_type,
                 )
                 return {"ok": True, "result": result.model_dump(mode="json")}
 

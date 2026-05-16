@@ -5,7 +5,7 @@ import time
 import unicodedata
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from ..clients.capwages import CapWagesClient
 from ..clients.nhl import NHLClient
@@ -109,6 +109,13 @@ def _safe_rate(numerator: int | None, denominator: int | None) -> float | None:
     return round(numerator / denominator, 3)
 
 
+def _format_toi_seconds(total_seconds: int | None) -> str | None:
+    if total_seconds is None or total_seconds < 0:
+        return None
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes}:{seconds:02d}"
+
+
 class PlayerToolService:
     def __init__(
         self,
@@ -128,11 +135,14 @@ class PlayerToolService:
 
     async def get_player_profile(self, query: PlayerToolQuery) -> PlayerProfileToolResult:
         landing = await self._get_landing_for_query(query)
-        tool_player = self._build_tool_player_data(landing, None)
+        tool_player = self._build_tool_player_data(landing, None, query.season_type)
         return PlayerProfileToolResult(
             identity=tool_player.identity,
             profile=tool_player.profile,
+            stats_context=tool_player.stats_context,
             stats=tool_player.stats,
+            regular_season_stats=tool_player.regular_season_stats,
+            playoff_stats=tool_player.playoff_stats,
             recent_form=tool_player.recent_form,
             source_coverage=SourceCoverage(nhl_available=True),
             limitations=[
@@ -163,7 +173,7 @@ class PlayerToolService:
         seeded = [player for player in roster if self._matches_seed_filters(player, filters)]
 
         detailed = await asyncio.gather(
-            *(self._get_tool_player_for_roster_player(player) for player in seeded)
+            *(self._get_tool_player_for_roster_player(player, filters.season_type) for player in seeded)
         )
         filtered = [player for player in detailed if self._matches_detailed_filters(player, filters)]
         sorted_players = self._sort_players(filtered, filters.sort_by)[: filters.limit]
@@ -179,10 +189,11 @@ class PlayerToolService:
         self,
         player_a_query: PlayerToolQuery,
         player_b_query: PlayerToolQuery,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
     ) -> PlayerComparisonResult:
         player_a, player_b = await asyncio.gather(
-            self._get_tool_player_for_query(player_a_query),
-            self._get_tool_player_for_query(player_b_query),
+            self._get_tool_player_for_query(player_a_query, season_type),
+            self._get_tool_player_for_query(player_b_query, season_type),
         )
         return PlayerComparisonResult(
             player_a=player_a,
@@ -292,25 +303,39 @@ class PlayerToolService:
         self._landing_cache.set(str(nhl_id), landing, self._settings.player_cache_ttl_seconds)
         return landing
 
-    async def _get_tool_player_for_query(self, query: PlayerToolQuery) -> ToolPlayerData:
+    async def _get_tool_player_for_query(
+        self,
+        query: PlayerToolQuery,
+        season_type_override: Literal["regular_season", "playoffs"] | None = None,
+    ) -> ToolPlayerData:
+        season_type = season_type_override or query.season_type
         if query.nhl_id is not None:
-            return await self._get_tool_player_by_nhl_id(query.nhl_id)
+            return await self._get_tool_player_by_nhl_id(query.nhl_id, season_type)
 
         roster_player = await self._resolve_roster_player(query.player or "")
-        return await self._get_tool_player_for_roster_player(roster_player)
+        return await self._get_tool_player_for_roster_player(roster_player, season_type)
 
-    async def _get_tool_player_for_roster_player(self, roster_player: LeagueRosterPlayer) -> ToolPlayerData:
-        return await self._get_tool_player_by_nhl_id(roster_player.nhl_id)
+    async def _get_tool_player_for_roster_player(
+        self,
+        roster_player: LeagueRosterPlayer,
+        season_type: Literal["regular_season", "playoffs", "both"] = "regular_season",
+    ) -> ToolPlayerData:
+        return await self._get_tool_player_by_nhl_id(roster_player.nhl_id, season_type)
 
-    async def _get_tool_player_by_nhl_id(self, nhl_id: int) -> ToolPlayerData:
-        cached = self._tool_player_cache.get(str(nhl_id))
+    async def _get_tool_player_by_nhl_id(
+        self,
+        nhl_id: int,
+        season_type: Literal["regular_season", "playoffs", "both"] = "regular_season",
+    ) -> ToolPlayerData:
+        cache_key = f"{nhl_id}:{season_type}"
+        cached = self._tool_player_cache.get(cache_key)
         if cached is not None:
             return cached
 
         landing = await self._get_player_landing(nhl_id)
         capwages_detail = await self._get_capwages_detail_for_landing(landing)
-        tool_player = self._build_tool_player_data(landing, capwages_detail)
-        self._tool_player_cache.set(str(nhl_id), tool_player, self._settings.player_cache_ttl_seconds)
+        tool_player = self._build_tool_player_data(landing, capwages_detail, season_type)
+        self._tool_player_cache.set(cache_key, tool_player, self._settings.player_cache_ttl_seconds)
         return tool_player
 
     async def _get_capwages_detail_for_landing(self, landing: dict) -> dict | None:
@@ -330,7 +355,12 @@ class PlayerToolService:
                 return None
             raise
 
-    def _build_tool_player_data(self, landing: dict, capwages_detail: dict | None) -> ToolPlayerData:
+    def _build_tool_player_data(
+        self,
+        landing: dict,
+        capwages_detail: dict | None,
+        season_type: Literal["regular_season", "playoffs", "both"] = "regular_season",
+    ) -> ToolPlayerData:
         try:
             normalized = self._normalizer.normalize_player(landing, capwages_detail)
         except IdentityResolutionError:
@@ -342,30 +372,143 @@ class PlayerToolService:
                 )
             )
 
+        regular_season_stats = self._build_basic_stats(landing, "regular_season")
+        playoff_stats = self._build_basic_stats(landing, "playoffs")
+        selected_stats = self._select_stats_for_context(
+            season_type,
+            regular_season_stats,
+            playoff_stats,
+        )
+
         return ToolPlayerData(
             identity=normalized.identity,
             profile=normalized.profile,
             contract=normalized.contract,
             active_contract=self._build_active_contract_view(normalized),
-            stats=self._build_basic_stats(landing),
+            stats_context=season_type,
+            stats=selected_stats,
+            regular_season_stats=regular_season_stats,
+            playoff_stats=playoff_stats,
             recent_form=self._build_recent_form(landing),
             source_coverage=normalized.source_coverage,
         )
 
-    def _build_basic_stats(self, landing: dict) -> BasicStats:
-        season_stats = landing.get("featuredStats", {}).get("regularSeason", {}).get("subSeason", {})
-        career_regular = landing.get("careerTotals", {}).get("regularSeason", {})
+    def _current_season_id(self, landing: dict) -> int | None:
+        featured_season = landing.get("featuredStats", {}).get("season")
+        if isinstance(featured_season, int):
+            return featured_season
+
+        nhl_seasons = [
+            row.get("season")
+            for row in landing.get("seasonTotals", [])
+            if isinstance(row, dict) and str(row.get("leagueAbbrev") or "").upper() == "NHL"
+        ]
+        valid_seasons = [season for season in nhl_seasons if isinstance(season, int)]
+        return max(valid_seasons) if valid_seasons else None
+
+    def _current_season_rows(
+        self,
+        landing: dict,
+        season_id: int | None,
+        game_type_id: int,
+    ) -> list[dict[str, Any]]:
+        if season_id is None:
+            return []
+
+        rows: list[dict[str, Any]] = []
+        for row in landing.get("seasonTotals", []):
+            if not isinstance(row, dict):
+                continue
+            if row.get("season") != season_id or row.get("gameTypeId") != game_type_id:
+                continue
+            if str(row.get("leagueAbbrev") or "").upper() != "NHL":
+                continue
+            rows.append(row)
+        return rows
+
+    def _aggregate_basic_stats_from_rows(self, season_id: int, rows: list[dict[str, Any]]) -> BasicStats:
+        games_played = sum(int(row.get("gamesPlayed", 0) or 0) for row in rows)
+        goals = sum(int(row.get("goals", 0) or 0) for row in rows)
+        assists = sum(int(row.get("assists", 0) or 0) for row in rows)
+        points = sum(int(row.get("points", 0) or 0) for row in rows)
+        shots = sum(int(row.get("shots", 0) or 0) for row in rows)
+
+        plus_minus_values = [int(row.get("plusMinus", 0) or 0) for row in rows if row.get("plusMinus") is not None]
+        plus_minus = sum(plus_minus_values) if plus_minus_values else None
+
+        weighted_toi = 0
+        toi_weight = 0
+        for row in rows:
+            row_games = int(row.get("gamesPlayed", 0) or 0)
+            row_toi_seconds = _parse_toi_seconds(str(row.get("avgToi") or "") or None)
+            if row_games > 0 and row_toi_seconds is not None:
+                weighted_toi += row_toi_seconds * row_games
+                toi_weight += row_games
+
+        avg_toi = _format_toi_seconds(round(weighted_toi / toi_weight)) if toi_weight else None
+        shooting_pct = round(goals / shots, 6) if shots > 0 else 0.0 if goals == 0 and shots == 0 else None
+
         return BasicStats(
-            season_id=landing.get("featuredStats", {}).get("season"),
-            games_played=season_stats.get("gamesPlayed"),
-            goals=season_stats.get("goals"),
-            assists=season_stats.get("assists"),
-            points=season_stats.get("points"),
-            shots=season_stats.get("shots"),
-            shooting_pct=season_stats.get("shootingPctg"),
-            plus_minus=season_stats.get("plusMinus"),
-            avg_toi=career_regular.get("avgToi"),
+            season_id=season_id,
+            games_played=games_played,
+            goals=goals,
+            assists=assists,
+            points=points,
+            shots=shots,
+            shooting_pct=shooting_pct,
+            plus_minus=plus_minus,
+            avg_toi=avg_toi,
         )
+
+    def _build_basic_stats(
+        self,
+        landing: dict,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> BasicStats:
+        season_id = self._current_season_id(landing)
+        game_type_id = 2 if season_type == "regular_season" else 3
+        rows = self._current_season_rows(landing, season_id, game_type_id)
+        if rows:
+            return self._aggregate_basic_stats_from_rows(season_id, rows)
+
+        if season_type == "regular_season":
+            season_stats = landing.get("featuredStats", {}).get("regularSeason", {}).get("subSeason", {})
+            return BasicStats(
+                season_id=season_id,
+                games_played=season_stats.get("gamesPlayed"),
+                goals=season_stats.get("goals"),
+                assists=season_stats.get("assists"),
+                points=season_stats.get("points"),
+                shots=season_stats.get("shots"),
+                shooting_pct=season_stats.get("shootingPctg"),
+                plus_minus=season_stats.get("plusMinus"),
+                avg_toi=None,
+            )
+
+        if season_id is None:
+            return BasicStats()
+
+        return BasicStats(
+            season_id=season_id,
+            games_played=0,
+            goals=0,
+            assists=0,
+            points=0,
+            shots=0,
+            shooting_pct=0.0,
+            plus_minus=0,
+            avg_toi=None,
+        )
+
+    def _select_stats_for_context(
+        self,
+        season_type: Literal["regular_season", "playoffs", "both"],
+        regular_season_stats: BasicStats,
+        playoff_stats: BasicStats,
+    ) -> BasicStats:
+        if season_type == "playoffs":
+            return playoff_stats
+        return regular_season_stats
 
     def _build_recent_form(self, landing: dict) -> RecentForm:
         last_games = landing.get("last5Games", [])

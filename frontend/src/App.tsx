@@ -52,7 +52,10 @@ type ActiveContract = {
   active_season: ContractSeason | null;
 };
 
+type StatsContext = "regular_season" | "playoffs" | "both";
+
 type BasicStats = {
+  season_id?: number | null;
   games_played: number | null;
   goals: number | null;
   assists: number | null;
@@ -73,7 +76,10 @@ type ToolPlayerData = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
   active_contract: ActiveContract;
+  stats_context: StatsContext;
   stats: BasicStats;
+  regular_season_stats?: BasicStats | null;
+  playoff_stats?: BasicStats | null;
   recent_form: RecentForm;
   source_coverage: SourceCoverage;
 };
@@ -98,7 +104,10 @@ type ComparisonResult = {
 type PlayerProfileToolResult = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
+  stats_context: StatsContext;
   stats: BasicStats;
+  regular_season_stats?: BasicStats | null;
+  playoff_stats?: BasicStats | null;
   recent_form: RecentForm;
   source_coverage: SourceCoverage;
 };
@@ -243,12 +252,44 @@ function visibleLimitations(limitations: string[]): string[] {
   return limitations.filter((item) => !hiddenLimitationPills.has(item));
 }
 
+function statsContextLabel(statsContext: StatsContext): string {
+  if (statsContext === "playoffs") {
+    return "Playoff line";
+  }
+
+  if (statsContext === "both") {
+    return "Stat lines";
+  }
+
+  return "Season line";
+}
+
+function formatScoringLine(stats: BasicStats | null | undefined): string {
+  if (!stats) {
+    return "N/A";
+  }
+
+  return `${formatStatValue(stats.goals)} G / ${formatStatValue(stats.assists)} A / ${formatStatValue(stats.points)} PTS`;
+}
+
 function playerKeyFacts(player: ToolPlayerData): Array<{ label: string; value: string }> {
+  if (player.stats_context === "both") {
+    return [
+      { label: "Age", value: calculateAge(player.profile.birth_date) },
+      { label: "RS GP", value: formatStatValue(player.regular_season_stats?.games_played ?? null) },
+      { label: "RS PTS", value: formatStatValue(player.regular_season_stats?.points ?? null) },
+      { label: "PO GP", value: formatStatValue(player.playoff_stats?.games_played ?? null) },
+      { label: "PO PTS", value: formatStatValue(player.playoff_stats?.points ?? null) },
+      { label: "AAV", value: formatCurrency(player.active_contract.current_aav) },
+    ];
+  }
+
+  const labelPrefix = player.stats_context === "playoffs" ? "PO " : "";
   return [
     { label: "Age", value: calculateAge(player.profile.birth_date) },
-    { label: "GP", value: formatStatValue(player.stats.games_played) },
-    { label: "PTS", value: formatStatValue(player.stats.points) },
-    { label: "TOI", value: player.stats.avg_toi ?? "N/A" },
+    { label: `${labelPrefix}GP`, value: formatStatValue(player.stats.games_played) },
+    { label: `${labelPrefix}PTS`, value: formatStatValue(player.stats.points) },
+    { label: `${labelPrefix}TOI`, value: player.stats.avg_toi ?? "N/A" },
     { label: "AAV", value: formatCurrency(player.active_contract.current_aav) },
     { label: "Term", value: formatStatValue(player.active_contract.years_remaining) },
   ];
@@ -305,11 +346,15 @@ function PlayerCard(props: { player: ToolPlayerData }) {
 
       <div className="micro-panels">
         <div className="micro-panel">
-          <p className="micro-label">Season line</p>
-          <p>
-            {formatStatValue(player.stats.goals)} G / {formatStatValue(player.stats.assists)} A /{" "}
-            {formatStatValue(player.stats.points)} PTS
-          </p>
+          <p className="micro-label">{statsContextLabel(player.stats_context)}</p>
+          {player.stats_context === "both" ? (
+            <>
+              <p>Regular season: {formatScoringLine(player.regular_season_stats)}</p>
+              <p>Playoffs: {formatScoringLine(player.playoff_stats)}</p>
+            </>
+          ) : (
+            <p>{formatScoringLine(player.stats)}</p>
+          )}
         </div>
         <div className="micro-panel">
           <p className="micro-label">Contract</p>
@@ -416,7 +461,10 @@ function ProfileView(props: { result: PlayerProfileToolResult }) {
       expiry_status: null,
       active_season: null,
     },
+    stats_context: props.result.stats_context,
     stats: props.result.stats,
+    regular_season_stats: props.result.regular_season_stats,
+    playoff_stats: props.result.playoff_stats,
     recent_form: props.result.recent_form,
     source_coverage: props.result.source_coverage,
   };
@@ -502,7 +550,10 @@ function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
       expiry_status: null,
       active_season: null,
     },
+    stats_context: result.stats_context,
     stats: result.stats,
+    regular_season_stats: result.regular_season_stats,
+    playoff_stats: result.playoff_stats,
     recent_form: result.recent_form,
     source_coverage: result.source_coverage,
   };

@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     nhl_referer: str = "https://www.nhl.com/"
     nhl_origin: str = "https://www.nhl.com"
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
-    openai_model: str = "gpt-5.4-mini"
+    openai_answer_model: str = Field(default="gpt-5.4-mini", alias="OPENAI_ANSWER_MODEL")
+    openai_classifier_model: str = Field(default="gpt-5.4-nano", alias="OPENAI_CLASSIFIER_MODEL")
     openai_reasoning_effort: str | None = None
     openai_max_tool_rounds: int = 8
     openai_max_output_tokens: int = 2000
