@@ -20,6 +20,7 @@ from ..models import (
     PlayerComparisonQuery,
     PlayerSearchFilters,
     SkaterLeaderboardQuery,
+    TeamToolQuery,
     PlayerToolQuery,
     ToolInvocationRecord,
 )
@@ -31,7 +32,7 @@ You are HockeyOps AI v0.5.
 
 You are a hockey-first assistant. Answer NHL and hockey-operations questions directly.
 
-Use backend tools whenever factual player, roster, stat, or contract information is needed.
+Use backend tools whenever factual player, roster, team, stat, or contract information is needed.
 
 Hard rules:
 - Do not invent stats, contract terms, clauses, team context, or player facts.
@@ -39,7 +40,8 @@ Hard rules:
 - Do not claim unsupported advanced analytics or strategic team-fit conclusions.
 - Current-season MoneyPuck player analytics are supported only through the tool-returned fields that are actually present.
 - Do not invent MoneyPuck metrics beyond the supported player fields in the tool output.
-- Do not claim team-level MoneyPuck context yet.
+- Team-level MoneyPuck stat fields are supported only through the tool-returned fields that are actually present.
+- Do not claim manual team context, strategy posture, or team-fit context that is not in the tool output.
 - If the question is subjective or evaluative, you may give a clearly labeled hockey opinion or judgment.
 - For subjective questions, use tool-returned facts when helpful, but do not refuse only because there is no single objectively verifiable answer.
 - For broad subjective questions without a stated criterion, answer with your best hockey judgment first, then optionally mention a few factual ways to narrow it.
@@ -48,6 +50,7 @@ Hard rules:
 - If the user is comparing two players or asking who had the better season, use compare_players rather than separate summary calls.
 - For comparison questions, when current-season player analytics are available in the tool output, treat them as meaningful evidence rather than an afterthought.
 - If the question is specifically about MoneyPuck or underlying analytics, prefer player profile or summary tools so you can use the returned analytics fields directly.
+- For team stat questions, use get_team_summary_data rather than forcing a player tool.
 - For season-stat questions, set the tool argument season_type explicitly.
 - Use season_type=regular_season by default.
 - Use season_type=playoffs only when the user explicitly needs playoff or postseason stats.
@@ -57,6 +60,8 @@ Hard rules:
 - Goalie search questions are supported through search_players with goalie-specific filters and sorts.
 - Goalie-vs-goalie comparison is supported through compare_players.
 - Mixed skater-vs-goalie statistical comparison is not supported.
+- Team stat questions are supported for regular season and playoffs.
+- For playoff team answers, do not invent standings-only fields like points percentage when they are not in the tool output.
 
 Output style:
 - Keep the answer concise and direct.
@@ -70,8 +75,10 @@ Output style:
 - When current-season player analytics are available and relevant, cite them plainly and keep them separate from the NHL counting-stat line.
 - Unless the user explicitly asks about MoneyPuck, refer to them as underlying analytics or chance-share / impact numbers rather than repeatedly calling them "MoneyPuck stats."
 - If MoneyPuck analytics are missing for a player, say that plainly instead of inventing an analytics take.
+- If team data is missing a field for the requested season context, say that plainly instead of inventing it.
 - If player games played differ meaningfully, discuss both total production and rate production.
 - Do not treat a tiny total-point edge as decisive without acknowledging the games-played context.
+- For team answers, keep traditional results and underlying metrics distinct.
 """.strip()
 
 SCOPE_CLASSIFIER_PROMPT = """
@@ -374,6 +381,17 @@ class HockeyOpsOrchestrator:
             },
             {
                 "type": "function",
+                "name": "get_team_summary_data",
+                "description": (
+                    "Fetch one NHL team summary with season-context-aware team stats and local MoneyPuck team analytics when available. "
+                    "Use this for factual team-stat questions about wins, losses, points, goals for/against, special teams, and underlying team metrics. "
+                    "For playoffs, rely only on the playoff fields actually returned by the tool."
+                ),
+                "strict": True,
+                "parameters": self._team_query_schema(),
+            },
+            {
+                "type": "function",
                 "name": "compare_players",
                 "description": (
                     "Compare two current NHL roster players side by side using factual NHL and CapWages data. "
@@ -450,6 +468,20 @@ class HockeyOpsOrchestrator:
                 "limit": {"type": "integer", "minimum": 1, "maximum": 50},
             },
             "required": ["season_type", "category", "limit"],
+        }
+
+    def _team_query_schema(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "team": {"type": "string"},
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs"],
+                },
+            },
+            "required": ["team", "season_type"],
         }
 
     def _player_comparison_schema(self) -> dict[str, Any]:
@@ -583,6 +615,10 @@ class HockeyOpsOrchestrator:
                 result = await self._tool_service.get_player_summary_data(PlayerToolQuery.model_validate(arguments))
                 return {"ok": True, "result": result.model_dump(mode="json")}
 
+            if name == "get_team_summary_data":
+                result = await self._tool_service.get_team_summary_data(TeamToolQuery.model_validate(arguments))
+                return {"ok": True, "result": result.model_dump(mode="json")}
+
             if name == "compare_players":
                 query = PlayerComparisonQuery.model_validate(arguments)
                 result = await self._tool_service.compare_players(
@@ -629,6 +665,10 @@ class HockeyOpsOrchestrator:
         if isinstance(player, dict):
             collected.extend(self._collect_player_notes(player))
 
+        team = result.get("team")
+        if isinstance(team, dict):
+            collected.extend(self._collect_team_notes(team))
+
         for field_name in ("players", "player_a", "player_b"):
             value = result.get(field_name)
             if isinstance(value, list):
@@ -641,6 +681,12 @@ class HockeyOpsOrchestrator:
         return self._dedupe_limitations(collected)
 
     def _collect_player_notes(self, payload: dict[str, Any]) -> list[str]:
+        collected: list[str] = []
+        collected.extend(self._collect_notes_from_coverage(payload.get("source_coverage")))
+        collected.extend(self._collect_notes_from_coverage(payload.get("moneypuck_coverage")))
+        return collected
+
+    def _collect_team_notes(self, payload: dict[str, Any]) -> list[str]:
         collected: list[str] = []
         collected.extend(self._collect_notes_from_coverage(payload.get("source_coverage")))
         collected.extend(self._collect_notes_from_coverage(payload.get("moneypuck_coverage")))
