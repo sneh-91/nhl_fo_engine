@@ -56,3 +56,6 @@ class NHLClient:
 
     async def get_club_stats(self, team_abbrev: str) -> dict:
         return await self._get(f"club-stats/{team_abbrev}/now")
+
+    async def get_skater_stats_leaders(self, season_id: int, game_type_id: int) -> dict:
+        return await self._get(f"skater-stats-leaders/{season_id}/{game_type_id}")

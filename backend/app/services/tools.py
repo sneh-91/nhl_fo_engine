@@ -23,6 +23,9 @@ from ..models import (
     PlayerSearchFilters,
     PlayerSearchResult,
     PlayerSummaryDataResult,
+    SkaterLeaderboardEntry,
+    SkaterLeaderboardQuery,
+    SkaterLeaderboardResult,
     PlayerToolQuery,
     RecentForm,
     SourceCoverage,
@@ -116,6 +119,19 @@ def _format_toi_seconds(total_seconds: int | None) -> str | None:
     return f"{minutes}:{seconds:02d}"
 
 
+LEADERBOARD_CATEGORY_MAP: dict[str, tuple[str, str]] = {
+    "points": ("points", "Points"),
+    "goals": ("goals", "Goals"),
+    "assists": ("assists", "Assists"),
+    "plus_minus": ("plusMinus", "Plus-Minus"),
+    "power_play_goals": ("goalsPp", "Power-Play Goals"),
+    "short_handed_goals": ("goalsSh", "Short-Handed Goals"),
+    "penalty_minutes": ("penaltyMins", "Penalty Minutes"),
+    "faceoff_pct": ("faceoffLeaders", "Faceoff Percentage"),
+    "time_on_ice": ("toi", "Time On Ice"),
+}
+
+
 class PlayerToolService:
     def __init__(
         self,
@@ -132,6 +148,7 @@ class PlayerToolService:
         self._roster_cache = TTLCache()
         self._landing_cache = TTLCache()
         self._tool_player_cache = TTLCache()
+        self._leaderboard_cache = TTLCache()
 
     async def get_player_profile(self, query: PlayerToolQuery) -> PlayerProfileToolResult:
         landing = await self._get_landing_for_query(query)
@@ -202,9 +219,78 @@ class PlayerToolService:
             limitations=self._shared_limitations(),
         )
 
+    async def get_skater_leaderboard(self, query: SkaterLeaderboardQuery) -> SkaterLeaderboardResult:
+        season_id = self._current_nhl_season_id()
+        game_type_id = 2 if query.season_type == "regular_season" else 3
+        payload = await self._get_skater_leaderboard_payload(season_id, game_type_id)
+
+        category_key, category_label = LEADERBOARD_CATEGORY_MAP[query.category]
+        rows = payload.get(category_key)
+        if not isinstance(rows, list):
+            raise ValueError(
+                f"NHL leaderboard payload did not include category '{category_key}'."
+            )
+
+        leaders: list[SkaterLeaderboardEntry] = []
+        for index, row in enumerate(rows[: query.limit], start=1):
+            if not isinstance(row, dict):
+                continue
+
+            first_name = _default_text(row.get("firstName")) or ""
+            last_name = _default_text(row.get("lastName")) or ""
+            full_name = " ".join(part for part in (first_name, last_name) if part).strip()
+            if not full_name:
+                continue
+
+            value = row.get("value")
+            if not isinstance(value, (int, float)):
+                continue
+
+            player_id = row.get("id")
+            if not isinstance(player_id, int):
+                continue
+
+            leaders.append(
+                SkaterLeaderboardEntry(
+                    rank=index,
+                    nhl_id=player_id,
+                    full_name=full_name,
+                    team_abbrev=str(row.get("teamAbbrev") or "") or None,
+                    position=str(row.get("position") or "") or None,
+                    headshot_url=str(row.get("headshot") or "") or None,
+                    value=value,
+                )
+            )
+
+        return SkaterLeaderboardResult(
+            season_id=season_id,
+            season_type=query.season_type,
+            category=query.category,
+            category_label=category_label,
+            leaders=leaders,
+            limitations=[
+                "This tool returns current-season NHL skater leaderboard data only.",
+            ],
+        )
+
     async def _with_limit(self, coroutine):
         async with self._semaphore:
             return await coroutine
+
+    def _current_nhl_season_id(self) -> int:
+        today = date.today()
+        start_year = today.year if today.month >= 7 else today.year - 1
+        return int(f"{start_year}{start_year + 1}")
+
+    async def _get_skater_leaderboard_payload(self, season_id: int, game_type_id: int) -> dict:
+        cache_key = f"{season_id}:{game_type_id}"
+        cached = self._leaderboard_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        payload = await self._with_limit(self._nhl_client.get_skater_stats_leaders(season_id, game_type_id))
+        self._leaderboard_cache.set(cache_key, payload, self._settings.player_cache_ttl_seconds)
+        return payload
 
     async def _get_league_roster(self) -> list[LeagueRosterPlayer]:
         cached = self._roster_cache.get("league_roster")

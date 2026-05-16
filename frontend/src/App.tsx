@@ -101,6 +101,24 @@ type ComparisonResult = {
   comparisons: ComparisonFact[];
 };
 
+type LeaderboardEntry = {
+  rank: number;
+  nhl_id: number;
+  full_name: string;
+  team_abbrev: string | null;
+  position: string | null;
+  headshot_url: string | null;
+  value: number;
+};
+
+type SkaterLeaderboardResult = {
+  season_id: number;
+  season_type: "regular_season" | "playoffs";
+  category: string;
+  category_label: string;
+  leaders: LeaderboardEntry[];
+};
+
 type PlayerProfileToolResult = {
   identity: PlayerIdentity;
   profile: PlayerProfile;
@@ -128,6 +146,7 @@ type ToolInvocation = {
   output: {
     ok: boolean;
     result?:
+      | SkaterLeaderboardResult
       | SearchResult
       | ComparisonResult
       | PlayerProfileToolResult
@@ -396,6 +415,47 @@ function SearchResultsView(props: { result: SearchResult }) {
             player={player}
           />
         ))}
+      </div>
+    </section>
+  );
+}
+
+function LeaderboardView(props: { result: SkaterLeaderboardResult }) {
+  const { result } = props;
+  const seasonLabel = result.season_type === "playoffs" ? "Playoffs" : "Regular season";
+
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>{result.category_label} leaders</h3>
+        </div>
+        <p className="result-meta">{seasonLabel}</p>
+      </div>
+
+      <div className="comparison-table-wrap">
+        <table className="comparison-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Team</th>
+              <th>Pos</th>
+              <th>{result.category_label}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.leaders.map((leader) => (
+              <tr key={`${leader.nhl_id}-${leader.rank}`}>
+                <td>{leader.rank}</td>
+                <td>{leader.full_name}</td>
+                <td>{leader.team_abbrev ?? "N/A"}</td>
+                <td>{leader.position ?? "N/A"}</td>
+                <td>{formatStatValue(leader.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -676,6 +736,15 @@ function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
               <SearchResultsView
                 key={key}
                 result={toolInvocation.output.result as SearchResult}
+              />
+            );
+          }
+
+          if (toolInvocation.tool_name === "get_skater_leaderboard") {
+            return (
+              <LeaderboardView
+                key={key}
+                result={toolInvocation.output.result as SkaterLeaderboardResult}
               />
             );
           }

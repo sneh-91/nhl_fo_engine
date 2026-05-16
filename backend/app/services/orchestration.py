@@ -18,6 +18,7 @@ from ..models import (
     OrchestratedAnswerResult,
     PlayerComparisonQuery,
     PlayerSearchFilters,
+    SkaterLeaderboardQuery,
     PlayerToolQuery,
     ToolInvocationRecord,
 )
@@ -45,6 +46,7 @@ Hard rules:
 - Use season_type=regular_season by default.
 - Use season_type=playoffs only when the user explicitly needs playoff or postseason stats.
 - Use season_type=both only when the user explicitly asks for both regular-season and playoff stats in the same answer.
+- For league leaders or leaderboard questions, use get_skater_leaderboard with one supported category.
 
 Output style:
 - Keep the answer concise and direct.
@@ -292,6 +294,17 @@ class HockeyOpsOrchestrator:
         return [
             {
                 "type": "function",
+                "name": "get_skater_leaderboard",
+                "description": (
+                    "Fetch a current-season NHL skater leaderboard for one supported category. "
+                    "Use this for league-leader questions about points, goals, assists, plus-minus, "
+                    "power-play goals, short-handed goals, penalty minutes, faceoff percentage, or time on ice."
+                ),
+                "strict": True,
+                "parameters": self._skater_leaderboard_schema(),
+            },
+            {
+                "type": "function",
                 "name": "search_players",
                 "description": (
                     "Search the current active NHL roster universe using factual NHL and CapWages filters. "
@@ -343,6 +356,34 @@ class HockeyOpsOrchestrator:
                 "parameters": self._player_comparison_schema(),
             },
         ]
+
+    def _skater_leaderboard_schema(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "season_type": {
+                    "type": "string",
+                    "enum": ["regular_season", "playoffs"],
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "points",
+                        "goals",
+                        "assists",
+                        "plus_minus",
+                        "power_play_goals",
+                        "short_handed_goals",
+                        "penalty_minutes",
+                        "faceoff_pct",
+                        "time_on_ice",
+                    ],
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+            },
+            "required": ["season_type", "category", "limit"],
+        }
 
     def _player_query_schema(self) -> dict[str, Any]:
         return {
@@ -450,6 +491,12 @@ class HockeyOpsOrchestrator:
     async def _execute_tool_call(self, name: str, raw_arguments: str) -> dict[str, Any]:
         arguments = json.loads(raw_arguments)
         try:
+            if name == "get_skater_leaderboard":
+                result = await self._tool_service.get_skater_leaderboard(
+                    SkaterLeaderboardQuery.model_validate(arguments)
+                )
+                return {"ok": True, "result": result.model_dump(mode="json")}
+
             if name == "search_players":
                 result = await self._tool_service.search_players(PlayerSearchFilters.model_validate(arguments))
                 return {"ok": True, "result": result.model_dump(mode="json")}

@@ -210,6 +210,35 @@ class PlayerSearchResult(BaseModel):
     limitations: list[str] = Field(default_factory=list)
 
 
+class SkaterLeaderboardEntry(BaseModel):
+    rank: int
+    nhl_id: int
+    full_name: str
+    team_abbrev: str | None = None
+    position: str | None = None
+    headshot_url: str | None = None
+    value: float | int
+
+
+class SkaterLeaderboardResult(BaseModel):
+    season_id: int
+    season_type: Literal["regular_season", "playoffs"]
+    category: Literal[
+        "points",
+        "goals",
+        "assists",
+        "plus_minus",
+        "power_play_goals",
+        "short_handed_goals",
+        "penalty_minutes",
+        "faceoff_pct",
+        "time_on_ice",
+    ]
+    category_label: str
+    leaders: list[SkaterLeaderboardEntry] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
 class ComparisonFact(BaseModel):
     category: str
     player_a_value: str | int | float | bool | None = None
@@ -241,6 +270,24 @@ class PlayerComparisonQuery(BaseModel):
         if self.player_b is None and self.player_b_nhl_id is None:
             raise ValueError("Either player_b or player_b_nhl_id must be provided.")
         return self
+
+
+class SkaterLeaderboardQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    season_type: Literal["regular_season", "playoffs"] = "regular_season"
+    category: Literal[
+        "points",
+        "goals",
+        "assists",
+        "plus_minus",
+        "power_play_goals",
+        "short_handed_goals",
+        "penalty_minutes",
+        "faceoff_pct",
+        "time_on_ice",
+    ]
+    limit: int = Field(default=10, ge=1, le=50)
 
 
 class ToolInvocationRecord(BaseModel):
