@@ -18,9 +18,11 @@ from ..models import (
     GoalieLeaderboardEntry,
     GoalieLeaderboardQuery,
     GoalieLeaderboardResult,
+    GoalieAnalytics,
     GoalieRecentForm,
     GoalieStats,
     MergeNote,
+    MoneyPuckCoverage,
     NormalizedPlayer,
     PlayerComparisonResult,
     PlayerContractToolResult,
@@ -34,9 +36,11 @@ from ..models import (
     PlayerToolQuery,
     RecentForm,
     SourceCoverage,
+    SkaterAnalytics,
     SkaterStats,
     ToolPlayerData,
 )
+from .moneypuck import MoneyPuckService
 from .normalization import PlayerNormalizer
 
 
@@ -156,11 +160,13 @@ class PlayerToolService:
         nhl_client: NHLClient,
         capwages_client: CapWagesClient,
         normalizer: PlayerNormalizer,
+        moneypuck_service: MoneyPuckService,
     ) -> None:
         self._settings = settings
         self._nhl_client = nhl_client
         self._capwages_client = capwages_client
         self._normalizer = normalizer
+        self._moneypuck_service = moneypuck_service
         self._semaphore = asyncio.Semaphore(settings.max_parallel_source_requests)
         self._roster_cache = TTLCache()
         self._landing_cache = TTLCache()
@@ -186,6 +192,9 @@ class PlayerToolService:
             regular_season_goalie_stats=tool_player.regular_season_goalie_stats,
             playoff_goalie_stats=tool_player.playoff_goalie_stats,
             goalie_recent_form=tool_player.goalie_recent_form,
+            skater_analytics=tool_player.skater_analytics,
+            goalie_analytics=tool_player.goalie_analytics,
+            moneypuck_coverage=tool_player.moneypuck_coverage,
             source_coverage=SourceCoverage(nhl_available=True),
             limitations=[
                 "This tool returns NHL profile and basic stat data only.",
@@ -560,6 +569,9 @@ class PlayerToolService:
         playoff_goalie_stats: GoalieStats | None = None
         selected_recent_form = RecentForm()
         goalie_recent_form: GoalieRecentForm | None = None
+        skater_analytics: SkaterAnalytics | None = None
+        goalie_analytics: GoalieAnalytics | None = None
+        moneypuck_coverage = self._build_moneypuck_coverage(landing, player_type)
 
         if player_type == "goalie":
             regular_season_goalie_stats = self._build_goalie_stats(landing, "regular_season")
@@ -570,6 +582,7 @@ class PlayerToolService:
                 playoff_goalie_stats,
             )
             goalie_recent_form = self._build_goalie_recent_form(landing)
+            goalie_analytics = self._moneypuck_service.get_goalie_analytics(int(landing.get("playerId") or 0))
         else:
             regular_season_skater_stats = self._build_skater_stats(landing, "regular_season")
             playoff_skater_stats = self._build_skater_stats(landing, "playoffs")
@@ -581,6 +594,7 @@ class PlayerToolService:
             regular_season_stats = self._to_basic_stats(regular_season_skater_stats)
             playoff_stats = self._to_basic_stats(playoff_skater_stats)
             selected_recent_form = self._build_recent_form(landing)
+            skater_analytics = self._moneypuck_service.get_skater_analytics(int(landing.get("playerId") or 0))
 
         selected_stats = (
             self._to_basic_stats(skater_stats)
@@ -606,8 +620,38 @@ class PlayerToolService:
             playoff_goalie_stats=playoff_goalie_stats,
             recent_form=selected_recent_form,
             goalie_recent_form=goalie_recent_form,
+            skater_analytics=skater_analytics,
+            goalie_analytics=goalie_analytics,
+            moneypuck_coverage=moneypuck_coverage,
             source_coverage=normalized.source_coverage,
         )
+
+    def _build_moneypuck_coverage(
+        self,
+        landing: dict,
+        player_type: Literal["skater", "goalie"],
+    ) -> MoneyPuckCoverage:
+        coverage = self._moneypuck_service.get_coverage()
+        player_id = int(landing.get("playerId") or 0)
+
+        analytics_found = (
+            self._moneypuck_service.get_goalie_analytics(player_id) is not None
+            if player_type == "goalie"
+            else self._moneypuck_service.get_skater_analytics(player_id) is not None
+        )
+
+        if coverage.available and not analytics_found:
+            coverage.notes.append(
+                MergeNote(
+                    code="missing_moneypuck_player_coverage",
+                    detail="No MoneyPuck analytics row was found for this player in the local 2025-26 regular-season files.",
+                )
+            )
+
+        if not coverage.available:
+            return coverage
+
+        return coverage
 
     def _current_season_id(self, landing: dict) -> int | None:
         featured_season = landing.get("featuredStats", {}).get("season")

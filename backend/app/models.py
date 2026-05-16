@@ -195,6 +195,9 @@ class ToolPlayerData(BaseModel):
     playoff_goalie_stats: GoalieStats | None = None
     recent_form: RecentForm = Field(default_factory=RecentForm)
     goalie_recent_form: GoalieRecentForm | None = None
+    skater_analytics: SkaterAnalytics | None = None
+    goalie_analytics: GoalieAnalytics | None = None
+    moneypuck_coverage: MoneyPuckCoverage = Field(default_factory=MoneyPuckCoverage)
     source_coverage: SourceCoverage
 
 
@@ -270,6 +273,9 @@ class PlayerProfileToolResult(BaseModel):
     regular_season_goalie_stats: GoalieStats | None = None
     playoff_goalie_stats: GoalieStats | None = None
     goalie_recent_form: GoalieRecentForm | None = None
+    skater_analytics: SkaterAnalytics | None = None
+    goalie_analytics: GoalieAnalytics | None = None
+    moneypuck_coverage: MoneyPuckCoverage = Field(default_factory=MoneyPuckCoverage)
     source_coverage: SourceCoverage
     limitations: list[str] = Field(default_factory=list)
 
