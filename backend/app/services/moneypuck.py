@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
+from typing import Literal
 
 from ..config import Settings
 from ..models import GoalieAnalytics, MergeNote, MoneyPuckCoverage, SkaterAnalytics
@@ -34,6 +35,10 @@ def _parse_float(value: str | None) -> float | None:
         return None
 
 
+def _season_label(season_type: Literal["regular_season", "playoffs"]) -> str:
+    return "regular-season" if season_type == "regular_season" else "playoff"
+
+
 @dataclass
 class MoneyPuckSnapshot:
     coverage: MoneyPuckCoverage
@@ -45,39 +50,57 @@ class MoneyPuckService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._lock = Lock()
-        self._cached_snapshot: MoneyPuckSnapshot | None = None
-        self._cached_at: float = 0.0
+        self._cached_snapshots: dict[str, MoneyPuckSnapshot] = {}
+        self._cached_at: dict[str, float] = {}
 
-    def get_skater_analytics(self, player_id: int) -> SkaterAnalytics | None:
-        return self._get_snapshot().skaters.get(player_id)
+    def get_skater_analytics(
+        self,
+        player_id: int,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> SkaterAnalytics | None:
+        return self._get_snapshot(season_type).skaters.get(player_id)
 
-    def get_goalie_analytics(self, player_id: int) -> GoalieAnalytics | None:
-        return self._get_snapshot().goalies.get(player_id)
+    def get_goalie_analytics(
+        self,
+        player_id: int,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> GoalieAnalytics | None:
+        return self._get_snapshot(season_type).goalies.get(player_id)
 
-    def get_coverage(self) -> MoneyPuckCoverage:
-        return self._get_snapshot().coverage.model_copy(deep=True)
+    def get_coverage(
+        self,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> MoneyPuckCoverage:
+        return self._get_snapshot(season_type).coverage.model_copy(deep=True)
 
-    def refresh(self) -> MoneyPuckSnapshot:
+    def refresh(
+        self,
+        season_type: Literal["regular_season", "playoffs"] = "regular_season",
+    ) -> MoneyPuckSnapshot:
         with self._lock:
-            snapshot = self._load_snapshot()
-            self._cached_snapshot = snapshot
-            self._cached_at = time.time()
+            snapshot = self._load_snapshot(season_type)
+            self._cached_snapshots[season_type] = snapshot
+            self._cached_at[season_type] = time.time()
             return snapshot
 
-    def _get_snapshot(self) -> MoneyPuckSnapshot:
+    def _get_snapshot(self, season_type: Literal["regular_season", "playoffs"]) -> MoneyPuckSnapshot:
         with self._lock:
+            cached_snapshot = self._cached_snapshots.get(season_type)
+            cached_at = self._cached_at.get(season_type, 0.0)
             if (
-                self._cached_snapshot is None
-                or (time.time() - self._cached_at) >= self._settings.moneypuck_cache_ttl_seconds
+                cached_snapshot is None
+                or (time.time() - cached_at) >= self._settings.moneypuck_cache_ttl_seconds
             ):
-                self._cached_snapshot = self._load_snapshot()
-                self._cached_at = time.time()
-            return self._cached_snapshot
+                cached_snapshot = self._load_snapshot(season_type)
+                self._cached_snapshots[season_type] = cached_snapshot
+                self._cached_at[season_type] = time.time()
+            return cached_snapshot
 
-    def _load_snapshot(self) -> MoneyPuckSnapshot:
+    def _load_snapshot(self, season_type: Literal["regular_season", "playoffs"]) -> MoneyPuckSnapshot:
         coverage = MoneyPuckCoverage(
             available=False,
             season_id=2025,
+            season_type=season_type,
             situation="all",
         )
         if not self._settings.moneypuck_enabled:
@@ -89,8 +112,9 @@ class MoneyPuckService:
             )
             return MoneyPuckSnapshot(coverage=coverage)
 
-        skaters, skater_notes = self._load_skaters(self._settings.moneypuck_2025_regular_skaters_path)
-        goalies, goalie_notes = self._load_goalies(self._settings.moneypuck_2025_regular_goalies_path)
+        skater_path, goalie_path = self._paths_for_season_type(season_type)
+        skaters, skater_notes = self._load_skaters(skater_path, season_type)
+        goalies, goalie_notes = self._load_goalies(goalie_path, season_type)
         coverage.available = bool(skaters or goalies)
         coverage.notes.extend(skater_notes)
         coverage.notes.extend(goalie_notes)
@@ -100,13 +124,31 @@ class MoneyPuckService:
             goalies=goalies,
         )
 
-    def _load_skaters(self, path: Path) -> tuple[dict[int, SkaterAnalytics], list[MergeNote]]:
+    def _paths_for_season_type(
+        self,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> tuple[Path, Path]:
+        if season_type == "playoffs":
+            return (
+                self._settings.moneypuck_2025_playoff_skaters_path,
+                self._settings.moneypuck_2025_playoff_goalies_path,
+            )
+        return (
+            self._settings.moneypuck_2025_regular_skaters_path,
+            self._settings.moneypuck_2025_regular_goalies_path,
+        )
+
+    def _load_skaters(
+        self,
+        path: Path,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> tuple[dict[int, SkaterAnalytics], list[MergeNote]]:
         notes: list[MergeNote] = []
         if not path.exists():
             notes.append(
                 MergeNote(
                     code="moneypuck_skaters_missing",
-                    detail=f"MoneyPuck skater file was not found at {path}.",
+                    detail=f"MoneyPuck {_season_label(season_type)} skater file was not found at {path}.",
                 )
             )
             return {}, notes
@@ -139,7 +181,7 @@ class MoneyPuckService:
             notes.append(
                 MergeNote(
                     code="moneypuck_skaters_parse_error",
-                    detail=f"MoneyPuck skater file could not be parsed: {error}",
+                    detail=f"MoneyPuck {_season_label(season_type)} skater file could not be parsed: {error}",
                 )
             )
             return {}, notes
@@ -148,18 +190,22 @@ class MoneyPuckService:
             notes.append(
                 MergeNote(
                     code="moneypuck_skaters_empty",
-                    detail="MoneyPuck skater file loaded but no 'all' situation rows were found.",
+                    detail=f"MoneyPuck {_season_label(season_type)} skater file loaded but no 'all' situation rows were found.",
                 )
             )
         return analytics_by_player, notes
 
-    def _load_goalies(self, path: Path) -> tuple[dict[int, GoalieAnalytics], list[MergeNote]]:
+    def _load_goalies(
+        self,
+        path: Path,
+        season_type: Literal["regular_season", "playoffs"],
+    ) -> tuple[dict[int, GoalieAnalytics], list[MergeNote]]:
         notes: list[MergeNote] = []
         if not path.exists():
             notes.append(
                 MergeNote(
                     code="moneypuck_goalies_missing",
-                    detail=f"MoneyPuck goalie file was not found at {path}.",
+                    detail=f"MoneyPuck {_season_label(season_type)} goalie file was not found at {path}.",
                 )
             )
             return {}, notes
@@ -203,7 +249,7 @@ class MoneyPuckService:
             notes.append(
                 MergeNote(
                     code="moneypuck_goalies_parse_error",
-                    detail=f"MoneyPuck goalie file could not be parsed: {error}",
+                    detail=f"MoneyPuck {_season_label(season_type)} goalie file could not be parsed: {error}",
                 )
             )
             return {}, notes
@@ -212,7 +258,7 @@ class MoneyPuckService:
             notes.append(
                 MergeNote(
                     code="moneypuck_goalies_empty",
-                    detail="MoneyPuck goalie file loaded but no 'all' situation rows were found.",
+                    detail=f"MoneyPuck {_season_label(season_type)} goalie file loaded but no 'all' situation rows were found.",
                 )
             )
         return analytics_by_player, notes

@@ -103,6 +103,7 @@ class GoalieAnalytics(BaseModel):
 class MoneyPuckCoverage(BaseModel):
     available: bool = False
     season_id: int | None = None
+    season_type: Literal["regular_season", "playoffs"] | None = None
     situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
     notes: list[MergeNote] = Field(default_factory=list)
 

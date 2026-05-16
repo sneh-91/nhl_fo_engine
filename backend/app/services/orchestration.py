@@ -344,7 +344,7 @@ class HockeyOpsOrchestrator:
                 "description": (
                     "Fetch one player's NHL profile, identity, season stats, recent form, and current-season MoneyPuck player analytics when available. "
                     "Supports both skaters and goalies for single-player questions. "
-                    "MoneyPuck analytics here are regular-season only for the local 2025-26 dataset. "
+                    "MoneyPuck analytics here follow the requested regular-season or playoff context for the local 2025-26 dataset when available. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines. "
                     "Use this for factual player-summary questions when contract detail is not the main focus."
                 ),
@@ -366,7 +366,7 @@ class HockeyOpsOrchestrator:
                 "description": (
                     "Fetch one merged player object combining NHL profile/stats, CapWages contract data, and current-season MoneyPuck player analytics when available. "
                     "Supports both skaters and goalies for single-player questions. "
-                    "MoneyPuck analytics here are regular-season only for the local 2025-26 dataset. "
+                    "MoneyPuck analytics here follow the requested regular-season or playoff context for the local 2025-26 dataset when available. "
                     "Set season_type explicitly when the user needs playoff/postseason stats or both regular-season and playoff lines."
                 ),
                 "strict": True,

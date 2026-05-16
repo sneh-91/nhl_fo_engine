@@ -198,7 +198,6 @@ class PlayerToolService:
             source_coverage=SourceCoverage(nhl_available=True),
             limitations=[
                 "This tool returns NHL profile/basic stat data and current-season MoneyPuck player analytics when available.",
-                "Contract and CapWages fields are not included unless you call a contract or summary tool.",
             ],
         )
 
@@ -571,7 +570,22 @@ class PlayerToolService:
         goalie_recent_form: GoalieRecentForm | None = None
         skater_analytics: SkaterAnalytics | None = None
         goalie_analytics: GoalieAnalytics | None = None
-        moneypuck_coverage = self._build_moneypuck_coverage(landing, player_type)
+        regular_season_moneypuck_coverage = self._build_moneypuck_coverage(
+            landing,
+            player_type,
+            "regular_season",
+        )
+        playoff_moneypuck_coverage = self._build_moneypuck_coverage(
+            landing,
+            player_type,
+            "playoffs",
+        )
+        moneypuck_coverage = self._select_moneypuck_coverage_for_context(
+            season_type,
+            regular_season_moneypuck_coverage,
+            playoff_moneypuck_coverage,
+        )
+        player_id = int(landing.get("playerId") or 0)
 
         if player_type == "goalie":
             regular_season_goalie_stats = self._build_goalie_stats(landing, "regular_season")
@@ -582,7 +596,19 @@ class PlayerToolService:
                 playoff_goalie_stats,
             )
             goalie_recent_form = self._build_goalie_recent_form(landing)
-            goalie_analytics = self._moneypuck_service.get_goalie_analytics(int(landing.get("playerId") or 0))
+            regular_season_goalie_analytics = self._moneypuck_service.get_goalie_analytics(
+                player_id,
+                "regular_season",
+            )
+            playoff_goalie_analytics = self._moneypuck_service.get_goalie_analytics(
+                player_id,
+                "playoffs",
+            )
+            goalie_analytics = self._select_goalie_analytics_for_context(
+                season_type,
+                regular_season_goalie_analytics,
+                playoff_goalie_analytics,
+            )
         else:
             regular_season_skater_stats = self._build_skater_stats(landing, "regular_season")
             playoff_skater_stats = self._build_skater_stats(landing, "playoffs")
@@ -594,7 +620,19 @@ class PlayerToolService:
             regular_season_stats = self._to_basic_stats(regular_season_skater_stats)
             playoff_stats = self._to_basic_stats(playoff_skater_stats)
             selected_recent_form = self._build_recent_form(landing)
-            skater_analytics = self._moneypuck_service.get_skater_analytics(int(landing.get("playerId") or 0))
+            regular_season_skater_analytics = self._moneypuck_service.get_skater_analytics(
+                player_id,
+                "regular_season",
+            )
+            playoff_skater_analytics = self._moneypuck_service.get_skater_analytics(
+                player_id,
+                "playoffs",
+            )
+            skater_analytics = self._select_skater_analytics_for_context(
+                season_type,
+                regular_season_skater_analytics,
+                playoff_skater_analytics,
+            )
 
         selected_stats = (
             self._to_basic_stats(skater_stats)
@@ -630,27 +668,51 @@ class PlayerToolService:
         self,
         landing: dict,
         player_type: Literal["skater", "goalie"],
+        season_type: Literal["regular_season", "playoffs"],
     ) -> MoneyPuckCoverage:
-        coverage = self._moneypuck_service.get_coverage()
+        coverage = self._moneypuck_service.get_coverage(season_type)
         player_id = int(landing.get("playerId") or 0)
 
         analytics_found = (
-            self._moneypuck_service.get_goalie_analytics(player_id) is not None
+            self._moneypuck_service.get_goalie_analytics(player_id, season_type) is not None
             if player_type == "goalie"
-            else self._moneypuck_service.get_skater_analytics(player_id) is not None
+            else self._moneypuck_service.get_skater_analytics(player_id, season_type) is not None
         )
 
         if coverage.available and not analytics_found:
+            season_label = "regular-season" if season_type == "regular_season" else "playoff"
             coverage.notes.append(
                 MergeNote(
                     code="missing_moneypuck_player_coverage",
-                    detail="No MoneyPuck analytics row was found for this player in the local 2025-26 regular-season files.",
+                    detail=f"No MoneyPuck analytics row was found for this player in the local 2025-26 {season_label} files.",
                 )
             )
 
-        if not coverage.available:
-            return coverage
+        return coverage
 
+    def _select_moneypuck_coverage_for_context(
+        self,
+        season_type: Literal["regular_season", "playoffs", "both"],
+        regular_season_coverage: MoneyPuckCoverage,
+        playoff_coverage: MoneyPuckCoverage,
+    ) -> MoneyPuckCoverage:
+        if season_type == "regular_season":
+            return regular_season_coverage
+        if season_type == "playoffs":
+            return playoff_coverage
+
+        coverage = MoneyPuckCoverage(
+            available=False,
+            season_id=regular_season_coverage.season_id or playoff_coverage.season_id,
+            season_type=None,
+            situation=regular_season_coverage.situation or playoff_coverage.situation,
+        )
+        coverage.notes.append(
+            MergeNote(
+                code="moneypuck_both_context_not_merged",
+                detail="MoneyPuck analytics are available separately for regular season and playoffs, but the combined both-stats view does not merge them into one line.",
+            )
+        )
         return coverage
 
     def _current_season_id(self, landing: dict) -> int | None:
@@ -874,6 +936,30 @@ class PlayerToolService:
         if season_type == "playoffs":
             return playoff_stats
         return regular_season_stats
+
+    def _select_skater_analytics_for_context(
+        self,
+        season_type: Literal["regular_season", "playoffs", "both"],
+        regular_season_analytics: SkaterAnalytics | None,
+        playoff_analytics: SkaterAnalytics | None,
+    ) -> SkaterAnalytics | None:
+        if season_type == "regular_season":
+            return regular_season_analytics
+        if season_type == "playoffs":
+            return playoff_analytics
+        return None
+
+    def _select_goalie_analytics_for_context(
+        self,
+        season_type: Literal["regular_season", "playoffs", "both"],
+        regular_season_analytics: GoalieAnalytics | None,
+        playoff_analytics: GoalieAnalytics | None,
+    ) -> GoalieAnalytics | None:
+        if season_type == "regular_season":
+            return regular_season_analytics
+        if season_type == "playoffs":
+            return playoff_analytics
+        return None
 
     def _build_recent_form(self, landing: dict) -> RecentForm:
         last_games = landing.get("last5Games", [])

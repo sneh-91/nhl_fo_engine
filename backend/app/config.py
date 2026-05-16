@@ -33,6 +33,14 @@ class Settings(BaseSettings):
         default=ROOT_DIR / "data" / "moneypuck" / "2025_regular" / "goalies.csv",
         alias="MONEYPUCK_2025_REGULAR_GOALIES_PATH",
     )
+    moneypuck_2025_playoff_skaters_path: Path = Field(
+        default=ROOT_DIR / "data" / "moneypuck" / "2025_playoffs" / "skaters.csv",
+        alias="MONEYPUCK_2025_PLAYOFF_SKATERS_PATH",
+    )
+    moneypuck_2025_playoff_goalies_path: Path = Field(
+        default=ROOT_DIR / "data" / "moneypuck" / "2025_playoffs" / "goalies.csv",
+        alias="MONEYPUCK_2025_PLAYOFF_GOALIES_PATH",
+    )
     moneypuck_cache_ttl_seconds: int = Field(default=900, alias="MONEYPUCK_CACHE_TTL_SECONDS")
     nhl_user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "

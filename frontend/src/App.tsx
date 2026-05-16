@@ -109,6 +109,7 @@ type GoalieAnalytics = {
 type MoneyPuckCoverage = {
   available: boolean;
   season_id?: number | null;
+  season_type?: "regular_season" | "playoffs" | null;
   situation: "all" | "5on5" | "5on4" | "4on5" | "other" | null;
   notes: MergeNote[];
 };
@@ -486,7 +487,20 @@ function moneyPuckLabel(coverage: MoneyPuckCoverage): string {
     return "Underlying analytics unavailable";
   }
 
-  return coverage.situation === "all" ? "Underlying analytics" : `Underlying analytics ${coverage.situation}`;
+  const context =
+    coverage.season_type === "playoffs"
+      ? "playoffs"
+      : coverage.season_type === "regular_season"
+        ? "regular season"
+        : null;
+
+  if (coverage.situation === "all") {
+    return context ? `Underlying analytics (${context})` : "Underlying analytics";
+  }
+
+  return context
+    ? `Underlying analytics ${coverage.situation} (${context})`
+    : `Underlying analytics ${coverage.situation}`;
 }
 
 function MoneyPuckPanel(props: { player: ToolPlayerData }) {
@@ -1193,7 +1207,7 @@ export default function App() {
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>
-        <p className="hero-source-note">Data from NHL API, CapWages, & MoneyPuck</p>
+        <p className="hero-source-note">Data from NHL API, CapWages, & MoneyPuck.com</p>
       </section>
 
       <section className="panel">
