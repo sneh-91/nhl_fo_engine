@@ -1,0 +1,728 @@
+{
+    "season_id": 20252026,
+    "last_updated": "2026-05-16",
+    "teams": {
+        "TOR": {    
+            "team_name": "Toronto Maple Leafs",
+            "contending_status": "retooling",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "prime",
+            "goalie_outlook": "unstable",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_c",
+                "top_6_rw",
+                "top_6_lw",
+                "penalty_kill_specialist"
+            ],
+            "needs": [
+                "top_2_d",
+                "bottom_6_depth",
+                "powerplay_qb"
+            ],
+            "context_note": "After a disastrous 2025-26 season where rampant injuries and abysmal possession metrics caused them to miss the playoffs for the first time in a decade, Toronto has entered a major transitional pivot. The front office cleared house, bringing in an analytical regime led by GM John Chayka. Fortuitously, winning the 2026 draft lottery gives them the #1 overall pick (Gavin McKenna), allowing them to pursue an aggressive, high-upside retool around their prime core rather than executing a total foundational teardown."
+            
+        },
+        "OTT": {
+            "team_name": "Ottawa Senators",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_c",
+                "top_6_lw",
+                "top_4_lhd"
+            ],
+            "needs": [
+                "top_6_rw",
+                "top_4_rhd",
+                "bottom_6_depth",
+                "penalty_kill_specialist"
+            ],
+            "context_note": "Squeezing into WC2 to make the playoffs in two consecutive seasonswas a massive milestone for coach Travis Green's squad, but a first-round sweep by Carolina exposed severe depth and special teams flaws. The high-end young core (Stützle, Tkachuk, Sanderson) is ready, but the front office must actively insulate them with premium depth pieces. While having great LHD like Chabot and Sanderson, they are in desperate need of a strong top 4 RHD. They could also use a scoring RW to help their top 6 generate and score more."
+        },
+        "MTL": {
+            "team_name": "Montreal Canadiens",
+            "contending_status": "rising",
+            "organizational_direction": "development_focus",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "highly_flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "strong",
+            "draft_capital": "surplus",
+            "strengths": [
+                "top_6_c",
+                "top_6_lw",
+                "top_2_d",
+                "cap_space",
+                "draft_assets",
+                "powerplay_qb"
+            ],
+            "needs": [
+                "top_6_c",
+                "top_6_rw"
+            ],
+            "context_note": "Montreal has arrived well ahead of schedule. While Lane Hutson has emerged as an elite powerplay quarterback, their war chest of surplus draft picks and high-tier prospects (including Michael Hage) means they are competing at a high playoff level while remaining set up beautifully for a long-term golden era. Their Captain Nick Suzuki, 26 y/o, is coming off of a 101PTS season whilst also being the selke nominee, calder nominated winger Ivan Demidov, young goalies, they are well positioned for the future."
+        },
+        "BUF": {
+            "team_name": "Buffalo Sabres",
+            "contending_status": "rising",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_c",
+                "top_6_rw",
+                "top_2_d",
+                "powerplay_qb"
+            ],
+            "needs": [
+                "starting_g",
+                "bottom_6_depth",
+                "penalty_kill_specialist"
+            ],
+            "context_note": "A regular-season triumph highlighted by elite individual weapons like Tage Thompson and Norris nominated Rasmus Dahlin. Mid-season management shifts cemented their transition into immediate winners. Though pushing back against Montreal in the second round is their current focus, their structural flexibility makes them permanent division threats moving forward."
+        },
+        "BOS": {
+            "team_name": "Boston Bruins",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "depleted",
+            "strengths": [
+                "starting_g",
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "needs": [
+                "top_6_c",
+                "bottom_6_depth"
+            ],
+            "context_note": "Jeremy Swayman and David Pastrnak consistently pull this roster into the competitive mix, but structural deficiencies down the middle and a near-empty farm cupboard with exception of Dean Letourneau prevent them from ascending back to true elite contender status."
+        },
+        "DET": {
+            "team_name": "Detroit Red Wings",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "unstable",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "needs": [
+                "starting_g",
+                "top_6_c",
+                "bottom_6_depth"
+            ],
+            "context_note": "Lucas Raymond and Moritz Seider continue to look like franchise pillars, but Steve Yzerman's group cannot crack the playoff wall without fixing a persistent revolving door in net and reinforcing internal center depth. After being in a playoff spot for the majority of the 2025-26 seaoson but still winding up missing the playoffs, it is clear that GM Steve Yzerman will need to bring in more elite talent to push this team over the edge."
+        },
+        "TBL": {
+            "team_name": "Tampa Bay Lightning",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "tight",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "aging",
+            "goalie_outlook": "strong",
+            "draft_capital": "depleted",
+            "strengths": [
+                "top_6_rw",
+                "starting_g",
+                "powerplay_qb"
+            ],
+            "needs": [
+                "bottom_6_depth",
+                "top_4_rhd",
+                "cap_space"
+            ],
+            "context_note": "Kucherov, Hedman, Point, Hagel and Vasilevskiy keep this championship window cracked on sheer individual brilliance, but suffocating cap limitations and a heavily depleted asset cupboard mean sustaining their elite form gets harder with each passing offseason. Especially with the uncertainty with Darren Raddysh being on expiring contract, this team will need to be creative to shore up their top 4 blueline."
+
+        },
+        "FLA": {
+            "team_name": "Florida Panthers",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "hold",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "prime",
+            "goalie_outlook": "strong",
+            "draft_capital": "depleted",
+            "strengths": [
+                "top_6_c",
+                "top_6_lw",
+                "starting_g",
+                "penalty_kill_specialist"
+            ],
+            "needs": [
+                "bottom_6_depth",
+                "cap_space"
+            ],
+            "context_note": "The 2025-26 season was a total medical write-off for the back-to-back champions. Captain Aleksander Barkov missed all 82 games due to a training camp ACL/MCL tear, while Matthew Tkachuk missed roughly half the season recovering from core surgery. Combined with rampant injuries to the supporting cast, the team missed the playoffs purely due to a depleted roster. With their core under contract and returning to full health for 2026-27, they remain immediate elite Stanley Cup contenders. Especially having the 9th overall pick in the coming draft, the Panthers can use that pick to add to their depleted propsect pool or in a win-now move."
+
+        },
+        "CAR": {
+            "team_name": "Carolina Hurricanes",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "prime",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_c",
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "needs": [
+                "cap_space",
+                "bottom_6_depth"
+            ],
+            "context_note": "Carolina completely dominated the Eastern Conference regular season and has translated that into an unblemished 8-0 postseason record via back-to-back sweeps of Ottawa and Philadelphia. Armed with young locked up wingers like Logan Stankoven and Jackson Blake, veterans like Jordan Staal and Taylor Hall, and new additions such as Nikolaj Ehlers and K'Andre Miller to insulate their core of Sebastian Aho and Seth Jarvis, they are the clear class of the NHL right now."
+        },
+        "NYR": {
+            "team_name": "New York Rangers",
+            "contending_status": "retooling",
+            "organizational_direction": "asset_accumulation",
+            "deadline_posture": "seller",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "average",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "surplus",
+            "strengths": [
+                "starting_g",
+                "top_2_d",
+                "top_6_c",
+                "draft_assets"
+            ],
+            "needs": [
+                "top_6_lw",
+                "top_6_rw",
+                "bottom_6_depth"
+            ],
+            "context_note": "A last-place finish in the Metro triggered Drury to launch 'The Letter' v2.0 and blow up the status quo, trading away Artemi Panarin for futures. While Shesterkin (locked up long-term at $11.5M AAV) and Fox remain elite, the roster is hollow. New York enters the summer with a war chest of 11 draft picks (including the #5th overall pick in the 2026 NHL draft) to aggressively retool the forward group."
+        },
+        "NYI": {
+            "team_name": "New York Islanders",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "prime",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+                "starting_g",
+                "top_2_d",
+                "top_6_c"
+            ],
+            "needs": [
+                "top_6_rw",
+                "bottom_6_depth",
+                "top_6_lw",
+                "top_4_rhd"
+            ],
+                "context_note": "A late 1-6-0 collapse knocked the Isles out of the picture and cost Patrick Roy his job. While a broken power play and core injuries sank their season, rookie defenseman Matthew Schaefer was a monumental silver lining—capturing the Calder Trophy while playing like a true top-pair anchor and leading all NHL rookies in TOI per game"
+        },
+        "PIT": {
+            "team_name": "Pittsburgh Penguins",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "aging",
+            "goalie_outlook": "average",
+            "draft_capital": "surplus",
+            "strengths": [
+            "top_6_c",
+            "powerplay_qb",
+            "top_6_lw"
+            ],
+            "needs": [
+            "bottom_6_depth",
+            "top_2_d"
+            ],
+            "context_note": "The Penguins snapped their postseason drought under GM Kyle Dubas and new head coach Dan Muse, finishing 2nd in the Metropolitan Division with 98 points. Led by an aging legendary core (Crosby, Malkin, Letang, Karlsson) and insulated by 31-goal scorer Anthony Mantha and netminder Stuart Skinner, Pittsburgh staged a brief comeback from a 3-0 series deficit against Philadelphia before falling in an overtime Game 6 defeat. The franchise remains trapped in a precarious balancing act as its championship window rapidly shuts whilst simultaneously holding numerous draft picks 10 picks in the first two rounds in the coming 3 drafts."
+
+        },
+        "PHI": {
+            "team_name": "Philadelphia Flyers",
+            "contending_status": "rising",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_rw",
+                "bottom_6_depth"
+            ],
+            "needs": [
+                "top_6_c",
+                "top_2_d",
+                "powerplay_qb"
+            ],
+            "context_note": "A spectacular breakthrough campaign under head coach Rick Tocchet saw the Flyers claim their first playoff appearance since 2020. Powered by a surging mixed core of Travis Konecny, Owen Tippett, acquisition Trevor Zegras, standout Matvei Michkov, & exceptional play from rookie Porter Martone, Philadelphia defeated their bitter rivals in Pittsburgh in six games before getting swept by Carolina in Round 2. Backed by stable netminding from Daniel Vladar and a strong farm system, the Flyers have established a clear upward trajectory."
+        },
+        "WSH": {
+            "team_name": "Washington Capitals",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_6_c",
+            "top_6_lw",
+            "starting_g"
+            ],
+            "needs": [
+            "top_2_d",
+            "top_6_rw"
+            ],
+            "context_note": "Washington narrowly missed out on a wild-card berth with 95 points. With Alex Ovechkin still producing at a 32-goal clip and a decent chunk of immediate cap space ($11.4M), management remains  dedicated to a balanced posture, focusing on development of youngsters while keeping competitive window open with their vets.  Their biggest structural priorities are landing an elite top-pair defenseman and finding an active powerplay quarterback to replace aging defensive assets, although they hope youngster Cole Hutson can develop into a top 2 power play QB they are looking for."
+
+        }, 
+        "NJD": {
+            "team_name": "New Jersey Devils",
+            "contending_status": "retooling",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_6_c",
+            "top_6_lw",
+            "powerplay_qb"
+            ],
+            "needs": [
+            "bottom_6_depth",
+            "penalty_kill_specialist"
+            ],
+            "context_note": "Despite a premium, young core featuring Jack Hughes and Nico Hischier, a 7th-place finish in the Metro forced ownership to pull the plug and fire long-time GM Tom Fitzgerald. The Devils have elite high-end offensive talent and special-teams blueprints, but they require a managerial reset to properly construct their bottom-six insulation and penalty-killing units under Sheldon Keefe."
+        },
+        "EDM": {
+        
+            "team_name": "Edmonton Oilers",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "tight",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "prime",
+            "goalie_outlook": "unstable",
+            "draft_capital": "depleted",
+            "strengths": [
+                "top_6_c",
+                "top_6_lw",
+                "top_2_d",
+                "powerplay_qb"
+            ],
+            "needs": [
+                "starting_g",
+                "bottom_6_depth"
+            ],
+            "context_note": "Despite elite regular-season campaigns from Connor McDavid (138 points) and Evan Bouchard (95 points), the Oilers suffered an incredibly disappointing first-round exit in six games to the underdog Anaheim Ducks, resulting in the firing of head coach Kris Knoblauch. The crease remains a volatile liability after the Stuart Skinner-Tristan Jarry trade backfired, forcing former third-stringer Connor Ingram into the playoff starter role for a team facing maximum win-now pressure."
+        
+
+        },
+        "LAK": {
+            "team_name": "Los Angeles Kings",
+            "contending_status": "retooling",
+            "organizational_direction": "balanced",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "needs": [
+                "top_6_c",
+                "bottom_6_depth"
+            ],
+            "context_note": "An aggressive pre-Olympic deadline splash to acquire Artemi Panarin was not enough to overcome a complete lack of 5-on-5 offensive generation, resulting in a first-round postseason sweep by the Colorado Avalanche. With interim coach D.J. Smith closing out the year, an aging legacy core (Kopitar, Doughty), and star forward Kevin Fiala recovering from a broken leg sustained at the Winter Olympics, GM Ken Holland faces a highly complex structural retool."
+
+        },
+        "ANA": {
+            "team_name": "Anaheim Ducks",
+            "contending_status": "rising",
+            "organizational_direction": "balanced",
+            "deadline_posture": "buyer",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+                "top_6_c",
+                "top_6_lw",
+                "starting_g"
+            ],
+            "needs": [
+                "top_4_rhd",
+                "bottom_6_depth"
+            ],
+            "context_note": "Anaheim emerged as the breakthrough juggernaut of the Western Conference under Joel Quenneville, securing 3rd in the Pacific and stunning Edmonton in the first round before bowing out to Vegas in Round 2. Powered by an elite wave of key contributors aged 22 or younger (Gauthier, Carlsson, Sennecke, LaCombe) and heavily insulated by heavy-duty veteran additions like John Carlson, Chris Kreider, and Jacob Trouba, the Ducks are perfectly set up for long-term contention."
+
+        },
+        "VGK": {
+            "team_name": "Vegas Golden Knights",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "tight",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "prime",
+            "goalie_outlook": "average",
+            "draft_capital": "depleted",
+            "strengths": [
+                "top_6_c",
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "needs": [
+                "cap_space",
+                "draft_assets"
+            ],
+            "context_note": "Vegas captured the Pacific Division title with 95 points and has marched directly into the Western Conference Finals against the Colorado Avalanche. True to franchise history, the season was packed with high-stakes drama: the front office fired Bruce Cassidy in late March to bring in John Tortorella, a move that paid off alongside a sensational, breakout postseason run from trade acquisition Mitch Marner. While they are a premier threat to win it all, their immediate asset cupboard took a hit after being hit with an NHL sanction that stripped them of their 2026 2nd-round pick."
+        },
+        "SJS": {
+            "team_name": "San Jose Sharks",
+            "contending_status": "rising",
+            "organizational_direction": "development_focus",
+            "deadline_posture": "hold",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "highly_flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "surplus",
+            "strengths": [
+            "top_6_c",
+            "top_6_lw",
+            "top_6_rw",
+            "draft_assets"
+            ],
+            "needs": [
+            "top_2_d",
+            "top_4_rhd",
+            "bottom_6_depth"
+            ],
+            "context_note": "The Sharks took an astronomical leap forward, finishing 5th in the Pacific with 86 points and hanging around the wild-card conversation until the final week. The entire season revolved around sophomore phenom  19 y/o Macklin Celebrini, who put together an absolute MVP-caliber campaign with 45 goals, 70 assists, and 115 points. With Yaroslav Askarov establishing himself as a foundational pillar in net with 21 wins and a war chest of cap space and high-end prospects, San Jose boasts one of the most terrifying futures in the league."
+        },
+        "SEA": {
+            "team_name": "Seattle Kraken",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+                "bottom_6_depth",
+                "backup_g"
+            ],
+            "needs": [
+                "top_6_c",
+                "top_6_rw",
+                "top_2_d"
+            ],
+            "context_note": "The Kraken flirted with a wild-card berth under first-year coach Lane Lambert, even acting as soft buyers at the deadline by acquiring Bobby McMann from Toronto. However, a late-season collapse where they won only 7 of their final 23 games completely tanked their playoff hopes, exposing a glaring lack of high-end, top-six offensive game-breakers as they finished 28th in league scoring. They will need more high-end talent if they have hopes of becoming a true contender"
+        },
+        "CGY": {
+            "team_name": "Calgary Flames",
+            "contending_status": "rebuilding",
+            "organizational_direction": "development_focus",
+            "deadline_posture": "seller",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "surplus",
+            "strengths": [
+            "starting_g",
+            "draft_assets",
+            "cap_space"
+            ],
+            "needs": [
+            "top_6_c",
+            "top_6_lw",
+            "top_6_rw"
+            ],
+            "context_note": "Calgary missed the postseason for a fourth consecutive year during the farewell season of the Scotiabank Saddledome. While young goalie Dustin Wolf proved he is a high-end future anchor in net with 23 wins, Ryan Huska's roster suffered from an absolute drought of premium offensive production, finishing dead last in the NHL with a paltry 208 goals scored. This team will continue to focus on developing their young talent such as Zayne Parekh whilst continuing to gain assets as they continue on their rebuild"
+        },
+        "VAN": {
+            "team_name": "Vancouver Canucks",
+            "contending_status": "rebuilding",
+            "organizational_direction": "asset_accumulation",
+            "deadline_posture": "seller",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "highly_flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "surplus",
+            "strengths": [
+                "top_6_c",
+                "draft_assets",
+                "cap_space"
+            ],
+            "needs": [
+                "top_2_d",
+                "top_6_rw",
+                "penalty_kill_specialist"
+            ],
+            "context_note": "A catastrophic, last-place 58-point season prompted a nuclear organizational reset under head coach Adam Foote. After a horrific start, the front office traded franchise icon and Norris-winner Quinn Hughes to Minnesota for a solid return (Zeev Buium, Marco Rossi, Liam Ohgren, and a 1st). Post-season, GM Patrik Allvin was fired, elevating the Sedin twins and new GM Ryan Johnson to spearhead a full-scale rebuild equipped with a massive asset war chest and the 3rd overall draft pick."
+        },
+        "COL": {
+            "team_name": "Colorado Avalanche",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "tight",
+            "prospect_pipeline": "weak",
+            "core_age_curve": "prime",
+            "goalie_outlook": "average",
+            "draft_capital": "depleted",
+            "strengths": [
+            "top_6_c",
+            "top_6_lw",
+            "top_6_rw",
+            "top_2_d",
+            "bottom_6_depth",
+            "powerplay_qb"
+            ],
+            "needs": [
+            "cap_space"
+            ],
+            "context_note": "The Avalanche captured the Presidents' Trophy with a dominant, league-leading 121-point regular season under Jared Bednar. Driven by elite prime superstars Nathan MacKinnon, Cale Makar, and Mikko Rantanen, Colorado steamrolled through the Western Conference bracket—sweeping Los Angeles and dismantling Minnesota in five games. Their center group of Mackinnon-Nelson-Kadri-Roy is dominating. Now entering the Western Conference Finals as clear championship favorites, their ultimate test lies in whether their goaltending tandem of Mackenzie Blackwood and Scott Wedgewood can hold up under maximum playoff pressure, although their goalies have proven capable so far."
+        },
+        "DAL": {
+            "team_name": "Dallas Stars",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+            "starting_g",
+            "top_2_d",
+            "top_6_rw",
+            "top_6_c",
+            "top_4_lhd"
+            ],
+            "needs": [
+            "cap_space",
+            "bottom_6_depth"
+            ],
+            "context_note": "Dallas put together a stellar 112-point regular-season campaign to place second in the Central Division, but their pursuit of a fourth consecutive Western Conference Finals appearance was derailed by a first-round exit against the Quinn Hughes/Kaprizov led Minnesota Wild in six games. Despite elite pillars like Jake Oettinger in net and Miro Heiskanen on the blueline, even-strength scoring struggles and the loss of their 1C in Roope Hintz and top4 defensmean Esa Lindell to injury left Glen Gulutzan's squad vulnerable to a premature exit."
+        },
+        "MIN": {
+            "team_name": "Minnesota Wild",
+            "contending_status": "contender",
+            "organizational_direction": "win_now",
+            "deadline_posture": "buyer",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "prime",
+            "goalie_outlook": "strong",
+            "draft_capital": "depleted",
+            "strengths": [
+            "top_2_d",
+            "top_6_lw",
+            "powerplay_qb",
+            "starting_g",
+            "backup_g"
+            ],
+            "needs": [
+            "top_6_c",
+            "cap_space"
+            ],
+            "context_note": "Minnesota shattered a decade-long curse by securing their first opening-round playoff series victory since 2015, led by their mid-season acquisition of Quinn Hughes, dramatically ousting rival Dallas in six games before falling to the buzzsaw Avalanche in Round 2. Bill Guerin completely weaponized the trade market by landing Norris-winning defenseman Quinn Hughes in a historic blockbuster with Vancouver, instantly forming an elite blueline tandem alongside Brock Faber and unlocking Kirill Kaprizov. However, their second-round exit exposed a glaring deficiency down the middle, making a high-end top-six center and an extension for Quinn Hughes their number-one offseason priority."
+        },
+        "UTA": {
+            "team_name": "Utah Mammoth",
+            "contending_status": "rising",
+            "organizational_direction": "balanced",
+            "deadline_posture": "soft_buyer",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_6_c",
+            "top_6_rw",
+            "top_4_rhd",
+            "top_2_d"
+            ],
+            "needs": [
+            "starting_g",
+            "bottom_6_depth",
+            "top_4_lhd"
+            ],
+            "context_note": "In their sophomore season in Salt Lake City, the newly christened Utah Mammoth successfully secured the Western Conference's top wild-card spot with 92 points. Though they bowed out in six games to Vegas in the first round, the accelerated progression of Logan Cooley and Dylan Guenther alongside major blueline logging from Mikhail Sergachev has the franchise positioned beautifully for a long-term upward trajectory."
+        },
+        "STL": {
+            "team_name": "St. Louis Blues",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_6_c",
+            "top_6_rw",
+            "backup_g"
+            ],
+            "needs": [
+            "top_2_d",
+            "top_6_lw",
+            "bottom_6_depth"
+            ],
+            "context_note": "St. Louis finished 5th in the Central with 86 points, falling short of the Western Conference postseason cutoff under Jim Montgomery. Robert Thomas continues to anchor the forward group as an elite top-six center piece, and young netminder Joel Hofer took notable strides with 24 wins. However, a lack of strong offensive wingers aside from Jordan Kyrou and Dylan Holloway and a true top-pair defensive depth keeps the roster hovering directly on the playoff bubble."
+        },
+        "NSH": {
+            "team_name": "Nashville Predators",
+            "contending_status": "bubble",
+            "organizational_direction": "win_now",
+            "deadline_posture": "hold",
+            "cap_posture": "tight",
+            "future_cap_outlook": "tight",
+            "prospect_pipeline": "average",
+            "core_age_curve": "aging",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+            "starting_g",
+            "top_6_rw",
+            "top_2_d"
+            ],
+            "needs": [
+            "bottom_6_depth",
+            "cap_space"
+            ],
+            "context_note": "Barry Trotz's heavy financial bets on veterans resulted in a second consecutive playoff miss, with 86 PTS. While Steven Stamkos delivered on his contract with a spectacular 40-goal campaign and Roman Josi remains an elite force, the structural squeeze of committing massive cap space to an aging core has severely depleted their bottom-six insulation and depth. With their aging core, they seem far away from contention reflecting their organizational mindset of contending is far from reality."
+        },
+        "CHI": {
+            "team_name": "Chicago Blackhawks",
+            "contending_status": "rebuilding",
+            "organizational_direction": "development_focus",
+            "deadline_posture": "seller",
+            "cap_posture": "flexible",
+            "future_cap_outlook": "highly_flexible",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "young",
+            "goalie_outlook": "average",
+            "draft_capital": "surplus",
+            "strengths": [
+            "top_6_c",
+            "cap_space",
+            "draft_assets"
+            ],
+            "needs": [
+            "top_2_d",
+            "top_6_lw",
+            "top_6_rw",
+            "bottom_6_depth"
+            ],
+            "context_note": "Chicago finished last in the Central Division with 72 points under head coach Jeff Blashill, missing the postseason for a sixth consecutive year. The campaign remained centered around foundational sophomore pillar Connor Bedard, who led the club with 73 points, alongside a robust 32-goal output from Tyler Bertuzzi. Operating with elite financial flexibility and an envious pipeline of young talent, the front office is taking a patient, long-term approach to accumulating assets around their premier young nucleus."
+        },
+        "WPG": {
+            "team_name": "Winnipeg Jets",
+            "contending_status": "bubble",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "tight",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "average",
+            "core_age_curve": "aging",
+            "goalie_outlook": "strong",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_6_c",
+            "top_6_rw",
+            "starting_g"
+            ],
+            "needs": [
+            "bottom_6_depth",
+            "top_2_d"
+            ],
+            "context_note": "Just one season after capturing the Presidents' Trophy, the Jets suffered a dramatic crash, finishing 7th in the Central Division with 82 points and missing the playoffs entirely. A catastrophic 0-7-4 slide from mid-December to early January—triggered heavily by a knee injury to superstar goaltender Connor Hellebuyck—proved too steep a mountain to climb. Despite elite individual performances from Mark Scheifele (101 points) and Kyle Connor (90 points), a severe lack of secondary depth scoring (tied for 24th in the league) completely derailed their campaign."
+        }
+    }
+}
