@@ -49,7 +49,7 @@
                 "bottom_6_depth",
                 "penalty_kill_specialist"
             ],
-            "context_note": "Squeezing into WC2 to make the playoffs in two consecutive seasonswas a massive milestone for coach Travis Green's squad, but a first-round sweep by Carolina exposed severe depth and special teams flaws. The high-end young core (Stützle, Tkachuk, Sanderson) is ready, but the front office must actively insulate them with premium depth pieces. While having great LHD like Chabot and Sanderson, they are in desperate need of a strong top 4 RHD. They could also use a scoring RW to help their top 6 generate and score more."
+            "context_note": "Squeezing into WC2 to make the playoffs in two consecutive seasonswas a massive milestone for coach Travis Green's squad, but a first-round sweep by Carolina exposed severe depth and special teams flaws. The high-end young core (Stutzle, Tkachuk, Sanderson) is ready, but the front office must actively insulate them with premium depth pieces. While having great LHD like Chabot and Sanderson, they are in desperate need of a strong top 4 RHD. They could also use a scoring RW to help their top 6 generate and score more."
         },
         "MTL": {
             "team_name": "Montreal Canadiens",
@@ -260,7 +260,7 @@
                 "top_6_lw",
                 "top_4_rhd"
             ],
-                "context_note": "A late 1-6-0 collapse knocked the Isles out of the picture and cost Patrick Roy his job. While a broken power play and core injuries sank their season, rookie defenseman Matthew Schaefer was a monumental silver lining—capturing the Calder Trophy while playing like a true top-pair anchor and leading all NHL rookies in TOI per game"
+                "context_note": "A late 1-6-0 collapse knocked the Isles out of the picture and cost Patrick Roy his job. While a broken power play and core injuries sank their season, rookie defenseman Matthew Schaefer was a monumental silver lining - capturing the Calder Trophy while playing like a true top-pair anchor and leading all NHL rookies in TOI per game"
         },
         "PIT": {
             "team_name": "Pittsburgh Penguins",
@@ -723,6 +723,29 @@
             "top_2_d"
             ],
             "context_note": "Just one season after capturing the Presidents' Trophy, the Jets suffered a dramatic crash, finishing 7th in the Central Division with 82 points and missing the playoffs entirely. A catastrophic 0-7-4 slide from mid-December to early January—triggered heavily by a knee injury to superstar goaltender Connor Hellebuyck—proved too steep a mountain to climb. Despite elite individual performances from Mark Scheifele (101 points) and Kyle Connor (90 points), a severe lack of secondary depth scoring (tied for 24th in the league) completely derailed their campaign."
+        },
+        "CBJ": {
+            "team_name": "Columbus Blue Jackets",
+            "contending_status": "rising",
+            "organizational_direction": "balanced",
+            "deadline_posture": "hold",
+            "cap_posture": "manageable",
+            "future_cap_outlook": "manageable",
+            "prospect_pipeline": "strong",
+            "core_age_curve": "mixed",
+            "goalie_outlook": "average",
+            "draft_capital": "standard",
+            "strengths": [
+            "top_2_d",
+            "powerplay_qb",
+            "top_6_c"
+            ],
+            "needs": [
+            "penalty_kill_specialist",
+            "bottom_6_depth",
+            "top_6_rw"
+            ],
+            "context_note": "Under the guidance of Don Waddell and a highly successful mid-season coaching change to Rick Bowness, the Blue Jackets surged to a 92-point campaign. Anchored by a Norris-finalist season from Zach Werenski and the structural emergence of Jet Greaves as a reliable goaltender, Columbus is quickly climbing out of its rebuild. While their five-on-five metrics took major steps forward, a 28th-ranked penalty kill  and anemic special teams depth remain the primary offseason areas to rectify before they can firmly crack the playoff bracket."
         }
     }
 }

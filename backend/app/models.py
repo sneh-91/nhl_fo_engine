@@ -116,6 +116,65 @@ class TeamStats(BaseModel):
     pdo: float | None = None
 
 
+class TeamContextEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    team_name: str
+    contending_status: Literal["rebuilding", "retooling", "rising", "bubble", "contender"]
+    organizational_direction: Literal["asset_accumulation", "development_focus", "balanced", "win_now"]
+    deadline_posture: Literal["seller", "soft_seller", "hold", "soft_buyer", "buyer"]
+    cap_posture: Literal["tight", "manageable", "flexible"]
+    future_cap_outlook: Literal["tight", "manageable", "flexible", "highly_flexible"]
+    prospect_pipeline: Literal["weak", "average", "strong"]
+    core_age_curve: Literal["young", "mixed", "prime", "aging"]
+    goalie_outlook: Literal["weak", "unstable", "average", "strong"]
+    draft_capital: Literal["depleted", "standard", "surplus"]
+    strengths: list[
+        Literal[
+            "top_6_c",
+            "top_6_lw",
+            "top_6_rw",
+            "bottom_6_depth",
+            "top_2_d",
+            "top_4_rhd",
+            "top_4_lhd",
+            "starting_g",
+            "backup_g",
+            "cap_space",
+            "draft_assets",
+            "powerplay_qb",
+            "penalty_kill_specialist",
+        ]
+    ] = Field(default_factory=list)
+    needs: list[
+        Literal[
+            "top_6_c",
+            "top_6_lw",
+            "top_6_rw",
+            "bottom_6_depth",
+            "top_2_d",
+            "top_4_rhd",
+            "top_4_lhd",
+            "starting_g",
+            "backup_g",
+            "cap_space",
+            "draft_assets",
+            "powerplay_qb",
+            "penalty_kill_specialist",
+        ]
+    ] = Field(default_factory=list)
+    context_note: str
+    last_updated: str | None = None
+
+
+class TeamContextSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    season_id: int
+    last_updated: str
+    teams: dict[str, TeamContextEntry] = Field(default_factory=dict)
+
+
 class SkaterAnalytics(BaseModel):
     season_id: int | None = None
     situation: Literal["all", "5on5", "5on4", "4on5", "other"] | None = None
