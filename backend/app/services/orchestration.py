@@ -16,6 +16,7 @@ from ..errors import (
     UpstreamRequestError,
 )
 from ..models import (
+    DisplaySelectionResponse,
     ExecutedToolResult,
     GoalieLeaderboardQuery,
     OrchestratedAnswerResult,
@@ -119,6 +120,30 @@ If true, the message should be:
 """.strip()
 
 
+DISPLAY_SELECTOR_PROMPT = """
+You select the support items that should be displayed in the UI for a HockeyOps AI answer.
+
+Return only JSON with this exact shape:
+{"display_items": [<display item objects>]}
+
+Allowed display item shapes:
+- {"kind": "player", "nhl_id": 123, "full_name": "Player Name", "title": "short label or null", "reason": "short reason or null"}
+- {"kind": "team", "team_abbrev": "TOR", "title": "short label or null", "reason": "short reason or null"}
+- {"kind": "leaderboard", "title": "short title", "tool_invocation_index": 0, "player_ids": [123, 456], "reason": "short reason or null"}
+
+Rules:
+- Choose only players, teams, or leaderboard tool outputs that are directly relevant to the final answer.
+- Do not include exploratory or unused candidates.
+- Do not include entities that are not present in the available references.
+- Prefer 1-5 display items for normal answers.
+- Use player items for specific named players.
+- Use team items for team-summary answers.
+- Use leaderboard items only when the final answer is about a leaderboard or ranking list.
+- If nothing should be displayed, return {"display_items": []}.
+- Do not include markdown or explanatory text outside the JSON object.
+""".strip()
+
+
 class HockeyOpsOrchestrator:
     def __init__(
         self,
@@ -203,6 +228,36 @@ class HockeyOpsOrchestrator:
             request["reasoning"] = {"effort": self._settings.openai_reasoning_effort}
 
         return await self._client.responses.create(**request)
+
+    async def _select_display_items(
+        self,
+        *,
+        question: str,
+        answer_text: str,
+        available_references: dict[str, Any],
+    ) -> DisplaySelectionResponse:
+        if self._client is None:
+            raise MissingConfigurationError(
+                "OPENAI_API_KEY is missing. Add it to the root .env before using display selection."
+            )
+
+        payload = {
+            "question": question,
+            "answer_text": answer_text,
+            "available_references": available_references,
+        }
+        response = await self._client.responses.create(
+            model=self._settings.openai_classifier_model,
+            instructions=DISPLAY_SELECTOR_PROMPT,
+            input=[{"role": "user", "content": json.dumps(payload)}],
+            max_output_tokens=1000,
+        )
+
+        try:
+            parsed = json.loads(response.output_text)
+            return DisplaySelectionResponse.model_validate(parsed)
+        except (json.JSONDecodeError, ValueError):
+            return DisplaySelectionResponse()
 
     async def _classify_scope(self, question: str) -> dict[str, Any]:
         if self._client is None:
