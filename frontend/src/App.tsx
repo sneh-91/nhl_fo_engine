@@ -17,6 +17,11 @@ const questionPlaceholders: Record<QuestionMode, string> = {
   nhlRules: "Ask about the CBA, rulebook, waivers, player movement, penalties, or roster rules.",
 };
 
+const questionModeApiValues: Record<QuestionMode, AskQuestionRequest["question_mode"]> = {
+  playerTeamInfo: "player_team_info",
+  nhlRules: "nhl_rules",
+};
+
 export default function App() {
   const [, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -76,7 +81,10 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: trimmedQuestion } satisfies AskQuestionRequest),
+        body: JSON.stringify({
+          question: trimmedQuestion,
+          question_mode: questionModeApiValues[questionMode],
+        } satisfies AskQuestionRequest),
       });
 
       const payload = (await response.json()) as AskQuestionResponse | { detail?: string };

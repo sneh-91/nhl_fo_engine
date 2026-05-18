@@ -4,6 +4,7 @@ export type HealthResponse = {
 
 export type AskQuestionRequest = {
   question: string;
+  question_mode?: "player_team_info" | "nhl_rules";
 };
 
 export type MergeNote = {

@@ -24,7 +24,7 @@ Current version: `0.5.0-phase6/phase7`
 backend/    FastAPI app, clients, orchestration, normalized tool services
 frontend/   React/Vite app and visual support-data renderers
 data/       Local MoneyPuck datasets and manual team context
-docs/       Architecture notes, implementation plans, and session guidance
+docs/       Current architecture notes
 scripts/    API and source-client smoke tests
 ```
 
@@ -92,10 +92,9 @@ Try these in the UI:
 
 Start with:
 
-1. `docs/README.md`
-2. `docs/project-context.md`
-3. `docs/v0.5-architecture.md`
-4. `docs/v0.5-implementation-plan.md`
+1. `docs/v0.5-architecture.md`
+2. `docs/nhl-rules-rag-rollout.md`
+3. `docs/nhl-rules-rag-stage-1-plan.md`
 
 ## Current Limits
 

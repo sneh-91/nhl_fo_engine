@@ -608,6 +608,7 @@ class AskQuestionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1, max_length=5000)
+    question_mode: Literal["player_team_info", "nhl_rules"] = "player_team_info"
 
     @model_validator(mode="after")
     def validate_question(self) -> "AskQuestionRequest":
