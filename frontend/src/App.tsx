@@ -304,11 +304,37 @@ type ToolInvocation = {
   };
 };
 
+type DisplayPlayerItem = {
+  kind: "player";
+  nhl_id: number | null;
+  full_name: string;
+  title: string | null;
+  reason: string | null;
+};
+
+type DisplayTeamItem = {
+  kind: "team";
+  team_abbrev: string;
+  title: string | null;
+  reason: string | null;
+};
+
+type DisplayLeaderboardItem = {
+  kind: "leaderboard";
+  title: string;
+  tool_invocation_index: number;
+  player_ids: number[];
+  reason: string | null;
+};
+
+type DisplayItem = DisplayPlayerItem | DisplayTeamItem | DisplayLeaderboardItem;
+
 type AskQuestionResponse = {
   question: string;
   answer_text: string;
   limitations: string[];
   support_data: {
+    display_items: DisplayItem[];
     tool_invocations: ToolInvocation[];
   };
 };
@@ -1124,6 +1150,247 @@ function toProfileToolPlayer(result: PlayerProfileToolResult): ToolPlayerData {
   };
 }
 
+function findDisplayPlayer(
+  item: DisplayPlayerItem,
+  toolInvocations: ToolInvocation[],
+): ToolPlayerData | null {
+  const normalizedName = item.full_name.toLowerCase();
+
+  function matches(player: ToolPlayerData): boolean {
+    return item.nhl_id !== null
+      ? player.identity.nhl_id === item.nhl_id
+      : player.identity.full_name.toLowerCase() === normalizedName;
+  }
+
+  for (const toolInvocation of toolInvocations) {
+    if (!toolInvocation.output.ok || !toolInvocation.output.result) {
+      continue;
+    }
+
+    const result = toolInvocation.output.result;
+    if ("players" in result && Array.isArray(result.players)) {
+      const player = result.players.find(matches);
+      if (player) {
+        return player;
+      }
+    }
+
+    if ("player_a" in result && "player_b" in result) {
+      if (matches(result.player_a)) {
+        return result.player_a;
+      }
+      if (matches(result.player_b)) {
+        return result.player_b;
+      }
+    }
+
+    if ("player" in result && matches(result.player)) {
+      return result.player;
+    }
+
+    if ("identity" in result && "profile" in result && "stats" in result && "recent_form" in result) {
+      const player = toProfileToolPlayer(result);
+      if (matches(player)) {
+        return player;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findDisplayTeam(
+  item: DisplayTeamItem,
+  toolInvocations: ToolInvocation[],
+): ToolTeamData | null {
+  const teamAbbrev = item.team_abbrev.toUpperCase();
+
+  for (const toolInvocation of toolInvocations) {
+    if (!toolInvocation.output.ok || !toolInvocation.output.result) {
+      continue;
+    }
+
+    const result = toolInvocation.output.result;
+    if ("team" in result && result.team.identity.team_abbrev.toUpperCase() === teamAbbrev) {
+      return result.team;
+    }
+  }
+
+  return null;
+}
+
+function findLeaderboardResult(
+  item: DisplayLeaderboardItem,
+  toolInvocations: ToolInvocation[],
+): SkaterLeaderboardResult | GoalieLeaderboardResult | null {
+  const toolInvocation = toolInvocations[item.tool_invocation_index];
+  if (
+    !toolInvocation
+    || !toolInvocation.output.ok
+    || !toolInvocation.output.result
+    || !(
+      toolInvocation.tool_name === "get_skater_leaderboard"
+      || toolInvocation.tool_name === "get_goalie_leaderboard"
+    )
+    || !("leaders" in toolInvocation.output.result)
+  ) {
+    return null;
+  }
+
+  const result = toolInvocation.output.result as SkaterLeaderboardResult | GoalieLeaderboardResult;
+  if (item.player_ids.length === 0) {
+    return result;
+  }
+
+  const playerIds = new Set(item.player_ids);
+  return {
+    ...result,
+    leaders: result.leaders.filter((leader) => playerIds.has(leader.nhl_id)),
+  };
+}
+
+function findLeaderboardEntryForPlayer(
+  item: DisplayPlayerItem,
+  toolInvocations: ToolInvocation[],
+): LeaderboardEntry | null {
+  const normalizedName = item.full_name.toLowerCase();
+
+  for (const toolInvocation of toolInvocations) {
+    if (
+      !toolInvocation.output.ok
+      || !toolInvocation.output.result
+      || !("leaders" in toolInvocation.output.result)
+    ) {
+      continue;
+    }
+
+    const entry = toolInvocation.output.result.leaders.find((leader) => (
+      item.nhl_id !== null
+        ? leader.nhl_id === item.nhl_id
+        : leader.full_name.toLowerCase() === normalizedName
+    ));
+    if (entry) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
+function CuratedPlayerView(props: { item: DisplayPlayerItem; toolInvocations: ToolInvocation[] }) {
+  const player = findDisplayPlayer(props.item, props.toolInvocations);
+  const leaderboardEntry = player ? null : findLeaderboardEntryForPlayer(props.item, props.toolInvocations);
+
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>{props.item.title ?? props.item.full_name}</h3>
+          {props.item.reason ? <p className="player-subtitle">{props.item.reason}</p> : null}
+        </div>
+      </div>
+
+      {player ? (
+        <PlayerCard player={player} />
+      ) : leaderboardEntry ? (
+        <div className="comparison-table-wrap">
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Pos</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{leaderboardEntry.rank}</td>
+                <td>{leaderboardEntry.full_name}</td>
+                <td>{leaderboardEntry.team_abbrev ?? "N/A"}</td>
+                <td>{leaderboardEntry.position ?? "N/A"}</td>
+                <td>{formatStatValue(leaderboardEntry.value)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p>{props.item.full_name}</p>
+      )}
+    </section>
+  );
+}
+
+function CuratedTeamView(props: { item: DisplayTeamItem; toolInvocations: ToolInvocation[] }) {
+  const team = findDisplayTeam(props.item, props.toolInvocations);
+
+  if (!team) {
+    return null;
+  }
+
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>{props.item.title ?? team.identity.team_name ?? team.identity.team_abbrev}</h3>
+          {props.item.reason ? <p className="player-subtitle">{props.item.reason}</p> : null}
+        </div>
+      </div>
+      <TeamCard team={team} />
+    </section>
+  );
+}
+
+function CuratedLeaderboardView(props: { item: DisplayLeaderboardItem; toolInvocations: ToolInvocation[] }) {
+  const result = findLeaderboardResult(props.item, props.toolInvocations);
+
+  if (!result) {
+    return null;
+  }
+
+  return (
+    <section className="support-block">
+      <div className="support-block-header">
+        <div>
+          <h3>{props.item.title}</h3>
+          {props.item.reason ? <p className="player-subtitle">{props.item.reason}</p> : null}
+        </div>
+      </div>
+      <LeaderboardView result={result} />
+    </section>
+  );
+}
+
+function CuratedSupportView(props: { displayItems: DisplayItem[]; toolInvocations: ToolInvocation[] }) {
+  if (props.displayItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="panel panel-soft">
+      <div className="panel-header">
+        <div>
+          <h2>Supporting data</h2>
+        </div>
+      </div>
+
+      <div className="trace-stack">
+        {props.displayItems.map((item, index) => {
+          const key = `${item.kind}-${index}`;
+          if (item.kind === "player") {
+            return <CuratedPlayerView key={key} item={item} toolInvocations={props.toolInvocations} />;
+          }
+          if (item.kind === "team") {
+            return <CuratedTeamView key={key} item={item} toolInvocations={props.toolInvocations} />;
+          }
+          return <CuratedLeaderboardView key={key} item={item} toolInvocations={props.toolInvocations} />;
+        })}
+      </div>
+    </section>
+  );
+}
+
 function collectSupportPlayers(toolInvocations: ToolInvocation[]): ToolPlayerData[] {
   const players = new Map<string, ToolPlayerData>();
 
@@ -1461,7 +1728,14 @@ export default function App() {
 
       {result ? (
         <>
-          <ToolTrace toolInvocations={result.support_data.tool_invocations} />
+          {result.support_data.display_items.length > 0 ? (
+            <CuratedSupportView
+              displayItems={result.support_data.display_items}
+              toolInvocations={result.support_data.tool_invocations}
+            />
+          ) : (
+            <ToolTrace toolInvocations={result.support_data.tool_invocations} />
+          )}
 
           <section className="panel answer-panel">
             <div className="panel-header">
