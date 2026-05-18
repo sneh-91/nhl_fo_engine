@@ -36,7 +36,7 @@ import {
   supportNotes,
   teamSupportNotes,
 } from "../utils/formatters";
-import { teamLogoSrc, teamSeasonLabel, teamStatsRows } from "../utils/teamDisplay";
+import { teamLogoSrc, teamLogoSrcByAbbrev, teamSeasonLabel, teamStatsRows } from "../utils/teamDisplay";
 
 function MoneyPuckPanel(props: { player: ToolPlayerData }) {
   const { player } = props;
@@ -144,10 +144,17 @@ function PlayerCard(props: { player: ToolPlayerData }) {
   return (
     <article className="player-card">
       <div className="player-card-header">
-        <div>
-          <p className="section-kicker">Player</p>
-          <h4>{player.identity.full_name}</h4>
-          <p className="player-subtitle">{playerSubtitle(player)}</p>
+        <div className="player-card-brand">
+          <img
+            className="team-logo"
+            src={teamLogoSrcByAbbrev(player.profile.team_abbrev)}
+            alt={`${player.profile.team_name ?? player.profile.team_abbrev ?? "NHL"} logo`}
+          />
+          <div>
+            <p className="section-kicker">Player</p>
+            <h4>{player.identity.full_name}</h4>
+            <p className="player-subtitle">{playerSubtitle(player)}</p>
+          </div>
         </div>
         <div className="source-badges">
           <span className={player.source_coverage.nhl_available ? "badge badge-on" : "badge"}>

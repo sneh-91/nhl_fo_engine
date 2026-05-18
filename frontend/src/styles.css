@@ -407,6 +407,7 @@ dd {
 }
 
 .team-card-header,
+.player-card-brand,
 .team-card-brand {
   display: flex;
   align-items: center;
@@ -567,6 +568,7 @@ dd {
     align-items: stretch;
   }
 
+  .player-card-brand,
   .team-card-brand {
     align-items: flex-start;
   }

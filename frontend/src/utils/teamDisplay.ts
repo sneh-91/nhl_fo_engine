@@ -2,8 +2,12 @@ import type { TeamIdentity, TeamStats } from "../types/api";
 import { teamLogoByAbbrev } from "../constants/teamLogos";
 import { formatDecimal, formatPct, formatStatValue } from "./formatters";
 
+export function teamLogoSrcByAbbrev(teamAbbrev: string | null | undefined): string {
+  return teamAbbrev ? teamLogoByAbbrev[teamAbbrev.toUpperCase()] ?? "/teams/nhl-logo.svg" : "/teams/nhl-logo.svg";
+}
+
 export function teamLogoSrc(team: TeamIdentity): string {
-  return teamLogoByAbbrev[team.team_abbrev] ?? "/teams/nhl-logo.svg";
+  return teamLogoSrcByAbbrev(team.team_abbrev);
 }
 
 export function teamStatsRows(stats: TeamStats): Array<{ label: string; value: string }> {
