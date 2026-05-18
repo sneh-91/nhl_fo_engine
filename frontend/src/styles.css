@@ -189,6 +189,38 @@ h4 {
   gap: 16px;
 }
 
+.question-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(7, 13, 20, 0.72);
+}
+
+.mode-option {
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mode-option:hover {
+  color: var(--text);
+}
+
+.mode-option.is-active {
+  background: rgba(126, 200, 255, 0.14);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(126, 200, 255, 0.16);
+}
+
 .query-form {
   margin-top: 18px;
 }
@@ -566,6 +598,15 @@ dd {
   .team-card-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .question-mode-switch {
+    width: 100%;
+  }
+
+  .mode-option {
+    flex: 1 1 0;
+    text-align: center;
   }
 
   .player-card-brand,

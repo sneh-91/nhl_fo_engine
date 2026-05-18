@@ -16,7 +16,7 @@ import type {
   ToolPlayerData,
   ToolTeamData,
 } from "../types/api";
-import { comparisonCategories, sampleQuestions } from "../constants/appConstants";
+import { comparisonCategories } from "../constants/appConstants";
 import {
   calculateAge,
   formatCategoryLabel,
@@ -121,10 +121,10 @@ function playerKeyFacts(player: ToolPlayerData): Array<{ label: string; value: s
   ];
 }
 
-export function QueryExamples(props: { onSelect: (question: string) => void }) {
+export function QueryExamples(props: { questions: string[]; onSelect: (question: string) => void }) {
   return (
     <div className="sample-grid">
-      {sampleQuestions.map((question) => (
+      {props.questions.map((question) => (
         <button
           key={question}
           className="sample-card"

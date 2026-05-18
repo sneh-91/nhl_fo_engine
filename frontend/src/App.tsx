@@ -2,18 +2,31 @@ import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { apiBaseUrl } from "./config";
 import { HockeyOpsLogo } from "./components/HockeyOpsLogo";
 import { CuratedSupportView, QueryExamples, ToolTrace } from "./components/SupportDataViews";
-import { sampleQuestions } from "./constants/appConstants";
+import {
+  questionModeLabels,
+  sampleQuestionsByMode,
+  type QuestionMode,
+} from "./constants/appConstants";
 import { visibleLimitations } from "./utils/formatters";
 import type { AskQuestionRequest, AskQuestionResponse, HealthResponse } from "./types/api";
+
+const questionModes: QuestionMode[] = ["playerTeamInfo", "nhlRules"];
+
+const questionPlaceholders: Record<QuestionMode, string> = {
+  playerTeamInfo: "Compare two defensemen, ask for a player summary, or search for a contract profile.",
+  nhlRules: "Ask about the CBA, rulebook, waivers, player movement, penalties, or roster rules.",
+};
 
 export default function App() {
   const [, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const [question, setQuestion] = useState(sampleQuestions[0]);
+  const [questionMode, setQuestionMode] = useState<QuestionMode>("playerTeamInfo");
+  const [question, setQuestion] = useState(sampleQuestionsByMode.playerTeamInfo[0]);
   const [result, setResult] = useState<AskQuestionResponse | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [, startTransition] = useTransition();
+  const activeSampleQuestions = sampleQuestionsByMode[questionMode];
   const shownLimitations = result ? visibleLimitations(result.limitations) : [];
 
   useEffect(() => {
@@ -90,6 +103,12 @@ export default function App() {
     setSubmitError(null);
   }
 
+  function applyQuestionMode(nextMode: QuestionMode) {
+    setQuestionMode(nextMode);
+    setQuestion(sampleQuestionsByMode[nextMode][0]);
+    setSubmitError(null);
+  }
+
   return (
     <main className="app-shell">
       <section className="hero">
@@ -109,18 +128,31 @@ export default function App() {
             <p className="section-kicker">Question</p>
             <h2>What do you want to know?</h2>
           </div>
+          <div className="question-mode-switch" aria-label="Question type">
+            {questionModes.map((mode) => (
+              <button
+                key={mode}
+                className={`mode-option${questionMode === mode ? " is-active" : ""}`}
+                type="button"
+                aria-pressed={questionMode === mode}
+                onClick={() => applyQuestionMode(mode)}
+              >
+                {questionModeLabels[mode]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <form className="query-form" onSubmit={handleSubmit}>
           <label className="sr-only" htmlFor="question">
-            Hockey ops question
+            {questionModeLabels[questionMode]} question
           </label>
           <textarea
             id="question"
             className="query-input"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Compare two defensemen, ask for a player summary, or search for a contract profile."
+            placeholder={questionPlaceholders[questionMode]}
             rows={4}
           />
           <div className="query-actions">
@@ -141,7 +173,7 @@ export default function App() {
           </div>
         </form>
 
-        <QueryExamples onSelect={applySampleQuestion} />
+        <QueryExamples questions={activeSampleQuestions} onSelect={applySampleQuestion} />
 
         {submitError ? <p className="error-banner">{submitError}</p> : null}
         {healthError ? <p className="error-banner">{healthError}</p> : null}
