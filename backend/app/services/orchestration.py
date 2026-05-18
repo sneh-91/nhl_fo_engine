@@ -191,9 +191,16 @@ class HockeyOpsOrchestrator:
         for _ in range(self._settings.openai_max_tool_rounds):
             function_calls = [item for item in response.output if getattr(item, "type", None) == "function_call"]
             if not function_calls:
+                answer_text = self._clean_answer_text(response.output_text)
+                display_selection = await self._select_validated_display_items(
+                    question=question,
+                    answer_text=answer_text,
+                    tool_invocations=tool_invocations,
+                )
                 return OrchestratedAnswerResult(
                     model=self._settings.openai_answer_model,
-                    answer_text=self._clean_answer_text(response.output_text),
+                    answer_text=answer_text,
+                    display_items=display_selection.display_items,
                     tool_invocations=tool_invocations,
                     limitations=self._dedupe_limitations(limitations),
                     response_id=getattr(response, "id", None),
@@ -271,6 +278,27 @@ class HockeyOpsOrchestrator:
             return DisplaySelectionResponse.model_validate(parsed)
         except (json.JSONDecodeError, ValueError):
             return DisplaySelectionResponse()
+
+    async def _select_validated_display_items(
+        self,
+        *,
+        question: str,
+        answer_text: str,
+        tool_invocations: list[ToolInvocationRecord],
+    ) -> DisplaySelectionResponse:
+        if not tool_invocations:
+            return DisplaySelectionResponse()
+
+        available_references = self._build_display_available_references(tool_invocations)
+        try:
+            selection = await self._select_display_items(
+                question=question,
+                answer_text=answer_text,
+                available_references=available_references,
+            )
+        except Exception:
+            return DisplaySelectionResponse()
+        return self._validate_display_selection(selection, tool_invocations)
 
     def _build_display_available_references(
         self,

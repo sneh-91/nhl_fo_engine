@@ -598,6 +598,7 @@ class DisplaySelectionResponse(BaseModel):
 class OrchestratedAnswerResult(BaseModel):
     model: str
     answer_text: str
+    display_items: list[DisplayItem] = Field(default_factory=list)
     tool_invocations: list[ToolInvocationRecord] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     response_id: str | None = None

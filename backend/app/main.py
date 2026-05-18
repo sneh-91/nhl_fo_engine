@@ -147,7 +147,10 @@ async def ask_question(payload: AskQuestionRequest) -> AskQuestionResponse:
         question=payload.question,
         answer_text=result.answer_text,
         limitations=result.limitations,
-        support_data=AskQuestionSupportData(tool_invocations=result.tool_invocations),
+        support_data=AskQuestionSupportData(
+            display_items=result.display_items,
+            tool_invocations=result.tool_invocations,
+        ),
         model=result.model,
         response_id=result.response_id,
     )
