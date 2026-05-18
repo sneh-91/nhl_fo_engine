@@ -342,9 +342,9 @@ type AskQuestionResponse = {
 const sampleQuestions = [
   "Compare Sidney Crosby Vs Alex Ovechkin",
   "Find right-shot defensemen on Florida under 7 million AAV",
-  "Show Auston Matthews Stats.",
+  "Who is better, Brandon Carlo or Bowen Byram? Pick one and defend your stance!",
   "Who are left-shot defensemen on Toronto with at least 20 points?",
-  "Were the Toronto Maple Leafs good this year?"
+  "Were the Toronto Maple Leafs good this year? What is their outlook?"
 ];
 
 const hiddenLimitationPills = new Set([

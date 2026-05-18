@@ -84,7 +84,7 @@ python scripts/test_phase6_api.py "Compare Aaron Ekblad vs Brandon Carlo"
 Try these in the UI:
 
 - `Find right-shot defensemen on Florida under 7 million AAV`
-- `Show Auston Matthews stats`
+- `Who is better, Brandon Carlo or Bowen Byram? Pick one and defend your stance!`
 - `Who leads the NHL in goalie wins?`
 - `Were the Toronto Maple Leafs good this year?`
 
