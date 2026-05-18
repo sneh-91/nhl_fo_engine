@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -562,6 +562,39 @@ class ToolInvocationRecord(BaseModel):
     output: dict[str, Any]
 
 
+class DisplayPlayerItem(BaseModel):
+    kind: Literal["player"]
+    nhl_id: int | None = None
+    full_name: str
+    title: str | None = None
+    reason: str | None = None
+
+
+class DisplayTeamItem(BaseModel):
+    kind: Literal["team"]
+    team_abbrev: str
+    title: str | None = None
+    reason: str | None = None
+
+
+class DisplayLeaderboardItem(BaseModel):
+    kind: Literal["leaderboard"]
+    title: str
+    tool_invocation_index: int
+    player_ids: list[int] = Field(default_factory=list)
+    reason: str | None = None
+
+
+DisplayItem = Annotated[
+    DisplayPlayerItem | DisplayTeamItem | DisplayLeaderboardItem,
+    Field(discriminator="kind"),
+]
+
+
+class DisplaySelectionResponse(BaseModel):
+    display_items: list[DisplayItem] = Field(default_factory=list)
+
+
 class OrchestratedAnswerResult(BaseModel):
     model: str
     answer_text: str
@@ -584,6 +617,7 @@ class AskQuestionRequest(BaseModel):
 
 
 class AskQuestionSupportData(BaseModel):
+    display_items: list[DisplayItem] = Field(default_factory=list)
     tool_invocations: list[ToolInvocationRecord] = Field(default_factory=list)
 
 
