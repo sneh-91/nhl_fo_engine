@@ -16,7 +16,10 @@ from ..errors import (
     UpstreamRequestError,
 )
 from ..models import (
+    DisplayLeaderboardItem,
+    DisplayPlayerItem,
     DisplaySelectionResponse,
+    DisplayTeamItem,
     ExecutedToolResult,
     GoalieLeaderboardQuery,
     OrchestratedAnswerResult,
@@ -143,6 +146,16 @@ Rules:
 - Do not include markdown or explanatory text outside the JSON object.
 """.strip()
 
+MAX_DISPLAY_ITEMS = 8
+
+
+def _normalize_display_text(value: str) -> str:
+    cleaned = "".join(
+        character if character.isalnum() or character.isspace() else " "
+        for character in value.casefold()
+    )
+    return " ".join(cleaned.split())
+
 
 class HockeyOpsOrchestrator:
     def __init__(
@@ -258,6 +271,264 @@ class HockeyOpsOrchestrator:
             return DisplaySelectionResponse.model_validate(parsed)
         except (json.JSONDecodeError, ValueError):
             return DisplaySelectionResponse()
+
+    def _build_display_available_references(
+        self,
+        tool_invocations: list[ToolInvocationRecord],
+    ) -> dict[str, Any]:
+        reference_index = self._build_display_reference_index(tool_invocations)
+        return {
+            "players": [
+                {
+                    "nhl_id": player["nhl_id"],
+                    "full_name": player["full_name"],
+                    "source_tool_indexes": sorted(player["source_tool_indexes"]),
+                }
+                for player in reference_index["players_by_id"].values()
+            ],
+            "teams": [
+                {
+                    "team_abbrev": team_abbrev,
+                    "source_tool_indexes": sorted(source_tool_indexes),
+                }
+                for team_abbrev, source_tool_indexes in reference_index["teams_by_abbrev"].items()
+            ],
+            "leaderboards": [
+                {
+                    "tool_invocation_index": tool_invocation_index,
+                    "title": leaderboard["title"],
+                    "player_ids": leaderboard["player_ids"],
+                }
+                for tool_invocation_index, leaderboard in reference_index["leaderboards_by_index"].items()
+            ],
+        }
+
+    def _validate_display_selection(
+        self,
+        selection: DisplaySelectionResponse,
+        tool_invocations: list[ToolInvocationRecord],
+    ) -> DisplaySelectionResponse:
+        reference_index = self._build_display_reference_index(tool_invocations)
+        display_items = []
+
+        for item in selection.display_items:
+            if len(display_items) >= MAX_DISPLAY_ITEMS:
+                break
+
+            if isinstance(item, DisplayPlayerItem):
+                validated_player = self._validate_display_player_item(item, reference_index)
+                if validated_player is not None:
+                    display_items.append(validated_player)
+                continue
+
+            if isinstance(item, DisplayTeamItem):
+                validated_team = self._validate_display_team_item(item, reference_index)
+                if validated_team is not None:
+                    display_items.append(validated_team)
+                continue
+
+            if isinstance(item, DisplayLeaderboardItem):
+                validated_leaderboard = self._validate_display_leaderboard_item(item, reference_index)
+                if validated_leaderboard is not None:
+                    display_items.append(validated_leaderboard)
+
+        return DisplaySelectionResponse(display_items=display_items)
+
+    def _validate_display_player_item(
+        self,
+        item: DisplayPlayerItem,
+        reference_index: dict[str, Any],
+    ) -> DisplayPlayerItem | None:
+        player_reference = None
+        if item.nhl_id is not None:
+            player_reference = reference_index["players_by_id"].get(item.nhl_id)
+
+        if player_reference is None:
+            player_reference = reference_index["players_by_name"].get(
+                _normalize_display_text(item.full_name)
+            )
+
+        if player_reference is None:
+            return None
+
+        return DisplayPlayerItem(
+            kind="player",
+            nhl_id=player_reference["nhl_id"],
+            full_name=player_reference["full_name"],
+            title=item.title,
+            reason=item.reason,
+        )
+
+    def _validate_display_team_item(
+        self,
+        item: DisplayTeamItem,
+        reference_index: dict[str, Any],
+    ) -> DisplayTeamItem | None:
+        team_abbrev = item.team_abbrev.strip().upper()
+        if team_abbrev not in reference_index["teams_by_abbrev"]:
+            return None
+
+        return DisplayTeamItem(
+            kind="team",
+            team_abbrev=team_abbrev,
+            title=item.title,
+            reason=item.reason,
+        )
+
+    def _validate_display_leaderboard_item(
+        self,
+        item: DisplayLeaderboardItem,
+        reference_index: dict[str, Any],
+    ) -> DisplayLeaderboardItem | None:
+        leaderboard = reference_index["leaderboards_by_index"].get(item.tool_invocation_index)
+        if leaderboard is None:
+            return None
+
+        allowed_player_ids = set(leaderboard["player_ids"])
+        player_ids = [
+            player_id
+            for player_id in item.player_ids
+            if player_id in allowed_player_ids
+        ]
+
+        return DisplayLeaderboardItem(
+            kind="leaderboard",
+            title=item.title.strip() or leaderboard["title"],
+            tool_invocation_index=item.tool_invocation_index,
+            player_ids=player_ids,
+            reason=item.reason,
+        )
+
+    def _build_display_reference_index(
+        self,
+        tool_invocations: list[ToolInvocationRecord],
+    ) -> dict[str, Any]:
+        reference_index: dict[str, Any] = {
+            "players_by_id": {},
+            "players_by_name": {},
+            "teams_by_abbrev": {},
+            "leaderboards_by_index": {},
+        }
+
+        for tool_invocation_index, tool_invocation in enumerate(tool_invocations):
+            output = tool_invocation.output
+            if not output.get("ok"):
+                continue
+
+            result = output.get("result")
+            if not isinstance(result, dict):
+                continue
+
+            self._collect_display_references_from_result(
+                reference_index,
+                result,
+                tool_invocation.tool_name,
+                tool_invocation_index,
+            )
+
+        return reference_index
+
+    def _collect_display_references_from_result(
+        self,
+        reference_index: dict[str, Any],
+        result: dict[str, Any],
+        tool_name: str,
+        tool_invocation_index: int,
+    ) -> None:
+        players = result.get("players")
+        if isinstance(players, list):
+            for player in players:
+                self._add_display_player_reference(reference_index, player, tool_invocation_index)
+
+        for field_name in ("player", "player_a", "player_b"):
+            player = result.get(field_name)
+            if isinstance(player, dict):
+                self._add_display_player_reference(reference_index, player, tool_invocation_index)
+
+        if "identity" in result:
+            self._add_display_player_reference(reference_index, result, tool_invocation_index)
+
+        team = result.get("team")
+        if isinstance(team, dict):
+            self._add_display_team_reference(reference_index, team, tool_invocation_index)
+
+        if tool_name in {"get_skater_leaderboard", "get_goalie_leaderboard"}:
+            self._add_display_leaderboard_reference(reference_index, result, tool_invocation_index)
+
+    def _add_display_player_reference(
+        self,
+        reference_index: dict[str, Any],
+        payload: Any,
+        tool_invocation_index: int,
+    ) -> None:
+        if not isinstance(payload, dict):
+            return
+
+        identity = payload.get("identity")
+        if isinstance(identity, dict):
+            nhl_id = identity.get("nhl_id")
+            full_name = identity.get("full_name")
+        else:
+            nhl_id = payload.get("nhl_id")
+            full_name = payload.get("full_name")
+
+        if not isinstance(nhl_id, int) or not isinstance(full_name, str) or not full_name.strip():
+            return
+
+        player_reference = reference_index["players_by_id"].setdefault(
+            nhl_id,
+            {
+                "nhl_id": nhl_id,
+                "full_name": full_name.strip(),
+                "source_tool_indexes": set(),
+            },
+        )
+        player_reference["source_tool_indexes"].add(tool_invocation_index)
+        reference_index["players_by_name"][_normalize_display_text(full_name)] = player_reference
+
+    def _add_display_team_reference(
+        self,
+        reference_index: dict[str, Any],
+        payload: dict[str, Any],
+        tool_invocation_index: int,
+    ) -> None:
+        identity = payload.get("identity")
+        if not isinstance(identity, dict):
+            return
+
+        team_abbrev = identity.get("team_abbrev")
+        if not isinstance(team_abbrev, str) or not team_abbrev.strip():
+            return
+
+        reference_index["teams_by_abbrev"].setdefault(team_abbrev.strip().upper(), set()).add(
+            tool_invocation_index
+        )
+
+    def _add_display_leaderboard_reference(
+        self,
+        reference_index: dict[str, Any],
+        result: dict[str, Any],
+        tool_invocation_index: int,
+    ) -> None:
+        leaders = result.get("leaders")
+        if not isinstance(leaders, list):
+            return
+
+        player_ids = []
+        for leader in leaders:
+            if not isinstance(leader, dict):
+                continue
+            self._add_display_player_reference(reference_index, leader, tool_invocation_index)
+            nhl_id = leader.get("nhl_id")
+            if isinstance(nhl_id, int):
+                player_ids.append(nhl_id)
+
+        category_label = result.get("category_label")
+        title = category_label if isinstance(category_label, str) and category_label.strip() else "Leaderboard"
+        reference_index["leaderboards_by_index"][tool_invocation_index] = {
+            "title": title,
+            "player_ids": player_ids,
+        }
 
     async def _classify_scope(self, question: str) -> dict[str, Any]:
         if self._client is None:
