@@ -19,6 +19,7 @@ from .models import AskQuestionSupportData
 from .models import OrchestratorDiagnosticsResponse
 from .services.normalization import PlayerNormalizer
 from .services.moneypuck import MoneyPuckService
+from .services.nhl_rules_rag import NHLRulesRAGService
 from .services.orchestration import HockeyOpsOrchestrator
 from .services.team_context import TeamContextService
 from .services.tools import PlayerToolService
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
     app.state.player_normalizer = PlayerNormalizer()
     app.state.moneypuck_service = MoneyPuckService(settings)
     app.state.team_context_service = TeamContextService(settings)
+    app.state.nhl_rules_rag_service = NHLRulesRAGService(settings)
     app.state.player_tool_service = PlayerToolService(
         settings=settings,
         nhl_client=app.state.nhl_client,

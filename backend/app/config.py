@@ -68,11 +68,13 @@ class Settings(BaseSettings):
     openai_reasoning_effort: str | None = None
     openai_max_tool_rounds: int = 8
     openai_max_output_tokens: int = 2000
+    nhl_rules_rag_enabled: bool = Field(default=True, alias="NHL_RULES_RAG_ENABLED")
     nhl_rules_chroma_path: Path = Field(
         default=ROOT_DIR / "data" / "nhl" / "vector_store" / "chroma",
         alias="NHL_RULES_CHROMA_PATH",
     )
     nhl_rules_chroma_collection: str = Field(default="nhl_rules", alias="NHL_RULES_CHROMA_COLLECTION")
+    nhl_rules_top_k: int = Field(default=6, alias="NHL_RULES_TOP_K")
     capwages_api_key: str | None = Field(default=None, alias="CAPWAGES_API_KEY")
 
     model_config = SettingsConfigDict(
