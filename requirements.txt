@@ -1,1 +1,9 @@
--r backend/requirements.txt
+# Canonical Python deps (Railpack install reads this file at repo root).
+fastapi==0.115.12
+uvicorn==0.34.2
+pydantic-settings==2.9.1
+httpx==0.28.1
+openai==2.36.0
+PyMuPDF==1.25.5
+chromadb==1.5.9
+gradio==6.14.0
