@@ -15,10 +15,6 @@ DEFAULT_SOURCE_DIR = ROOT_DIR / "data" / "nhl"
 DEFAULT_OUTPUT_DIR = DEFAULT_SOURCE_DIR / "processed"
 
 SOURCE_DOCUMENTS = {
-    "cba": {
-        "title": "NHL Collective Bargaining Agreement",
-        "filename": "nhl_cba.pdf",
-    },
     "rulebook": {
         "title": "NHL Rulebook",
         "filename": "nhl_rulebook.pdf",
@@ -320,7 +316,7 @@ def parse_args() -> argparse.Namespace:
         "--source-dir",
         type=Path,
         default=DEFAULT_SOURCE_DIR,
-        help="Directory containing nhl_cba.pdf and nhl_rulebook.pdf.",
+        help="Directory containing nhl_rulebook.pdf.",
     )
     parser.add_argument(
         "--output-dir",

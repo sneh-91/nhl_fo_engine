@@ -1,8 +1,7 @@
 {
   "build_stage": "phase_2_pdf_processing_and_chunk_build",
-  "built_at": "2026-05-18T23:37:38.788899+00:00",
+  "built_at": "2026-05-19T00:04:33.585047+00:00",
   "chunk_counts": {
-    "cba": 0,
     "rulebook": 105
   },
   "chunking": {
@@ -12,18 +11,12 @@
   },
   "chunks_count": 105,
   "chunks_jsonl": "data/nhl/processed/chunks.jsonl",
-  "documents_count": 772,
+  "documents_count": 232,
   "documents_jsonl": "data/nhl/processed/documents.jsonl",
   "source_page_counts": {
-    "cba": 540,
     "rulebook": 232
   },
   "sources": {
-    "cba": {
-      "path": "data/nhl/nhl_cba.pdf",
-      "sha256": "d2061676f222a179e649f79fba816eee5bd426b97c4d32216a18b35ea28cd23d",
-      "title": "NHL Collective Bargaining Agreement"
-    },
     "rulebook": {
       "path": "data/nhl/nhl_rulebook.pdf",
       "sha256": "d941edf9d78ef26527c4daddd9f84cf6f7b574ea78d6770ef227b189eb5ce10f",
@@ -31,10 +24,7 @@
     }
   },
   "text_page_counts": {
-    "cba": 0,
     "rulebook": 230
   },
-  "warnings": [
-    "NHL Collective Bargaining Agreement produced no extractable text and will need OCR before retrieval."
-  ]
+  "warnings": []
 }

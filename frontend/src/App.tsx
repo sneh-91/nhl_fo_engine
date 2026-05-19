@@ -14,7 +14,7 @@ const questionModes: QuestionMode[] = ["playerTeamInfo", "nhlRules"];
 
 const questionPlaceholders: Record<QuestionMode, string> = {
   playerTeamInfo: "Compare two defensemen, ask for a player summary, or search for a contract profile.",
-  nhlRules: "Ask about the CBA, rulebook, waivers, player movement, penalties, or roster rules.",
+  nhlRules: "Ask about NHL rulebook topics like icing, offside, penalties, challenges, or game flow.",
 };
 
 const questionModeApiValues: Record<QuestionMode, AskQuestionRequest["question_mode"]> = {
