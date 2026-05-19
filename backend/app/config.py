@@ -5,11 +5,29 @@ from pathlib import Path
 
 from pydantic import Field
 from pydantic import HttpUrl
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+PROJECT_PATH_FIELDS = (
+    "moneypuck_2025_regular_skaters_path",
+    "moneypuck_2025_regular_goalies_path",
+    "moneypuck_2025_regular_teams_path",
+    "moneypuck_2025_playoff_skaters_path",
+    "moneypuck_2025_playoff_goalies_path",
+    "moneypuck_2025_playoff_teams_path",
+    "team_context_2025_26_path",
+    "nhl_rules_chroma_path",
+)
+
+
+def resolve_project_path(path: Path) -> Path:
+    if path.is_absolute():
+        return path.resolve()
+    return (ROOT_DIR / path).resolve()
 
 
 class Settings(BaseSettings):
@@ -77,6 +95,20 @@ class Settings(BaseSettings):
     nhl_rules_chroma_collection: str = Field(default="nhl_rules", alias="NHL_RULES_CHROMA_COLLECTION")
     nhl_rules_top_k: int = Field(default=6, alias="NHL_RULES_TOP_K")
     capwages_api_key: str | None = Field(default=None, alias="CAPWAGES_API_KEY")
+
+    @model_validator(mode="after")
+    def resolve_relative_project_paths(self) -> Settings:
+        for field_name in PROJECT_PATH_FIELDS:
+            field_value = getattr(self, field_name)
+            if field_value.is_absolute():
+                continue
+
+            setattr(
+                self,
+                field_name,
+                resolve_project_path(field_value),
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=ROOT_ENV_FILE,

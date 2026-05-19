@@ -4,6 +4,7 @@
 [build]
 builder = "RAILPACK"
 # Runs after Railpack install (pip install -r requirements.txt at repo root).
+# Requires OPENAI_API_KEY in Railway build variables so embeddings can be generated.
 buildCommand = "python scripts/build_nhl_rules_index.py"
 
 [deploy]
