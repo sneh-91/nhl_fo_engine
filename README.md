@@ -95,6 +95,7 @@ Start with:
 1. `docs/v0.5-architecture.md`
 2. `docs/nhl-rules-rag-rollout.md`
 3. `docs/nhl-rules-rag-stage-1-plan.md`
+4. `docs/nhl-rules-rag-stage-2-plan.md`
 
 ## Current Limits
 

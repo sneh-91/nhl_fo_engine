@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     openai_answer_model: str = Field(default="gpt-5.4-mini", alias="OPENAI_ANSWER_MODEL")
     openai_classifier_model: str = Field(default="gpt-5.4-nano", alias="OPENAI_CLASSIFIER_MODEL")
     openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
+    openai_judge_model: str = Field(default="gpt-5-mini", alias="OPENAI_JUDGE_MODEL")
     openai_reasoning_effort: str | None = None
     openai_max_tool_rounds: int = 8
     openai_max_output_tokens: int = 2000

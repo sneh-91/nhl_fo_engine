@@ -7,3 +7,4 @@ frontend/.env
 frontend/tsconfig.tsbuildinfo
 data/nhl/processed/
 data/nhl/vector_store/
+data/nhl/evals/results/
