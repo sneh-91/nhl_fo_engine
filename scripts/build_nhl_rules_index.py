@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,8 +12,13 @@ from typing import Iterable
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 DEFAULT_SOURCE_DIR = ROOT_DIR / "data" / "nhl"
 DEFAULT_OUTPUT_DIR = DEFAULT_SOURCE_DIR / "processed"
+DEFAULT_CHROMA_DIR = DEFAULT_SOURCE_DIR / "vector_store" / "chroma"
+DEFAULT_CHROMA_COLLECTION = "nhl_rules"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 SOURCE_DOCUMENTS = {
     "rulebook": {
@@ -43,6 +49,14 @@ class ChunkRecord:
     token_count: int
 
 
+@dataclass(frozen=True)
+class VectorBuildResult:
+    chroma_path: Path
+    collection_name: str
+    embedding_model: str
+    inserted_count: int
+
+
 def normalize_text(value: str) -> str:
     cleaned = value.replace("\x00", " ")
     cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
@@ -56,6 +70,10 @@ def relative_path(path: Path) -> str:
         return path.resolve().relative_to(ROOT_DIR.resolve()).as_posix()
     except ValueError:
         return path.resolve().as_posix()
+
+
+def project_path(path: Path) -> Path:
+    return path if path.is_absolute() else ROOT_DIR / path
 
 
 def file_sha256(path: Path) -> str:
@@ -75,6 +93,111 @@ def jsonl_write(path: Path, records: Iterable[dict]) -> int:
             handle.write("\n")
             count += 1
     return count
+
+
+def chunk_metadata(chunk: ChunkRecord) -> dict[str, str | int]:
+    return {
+        "chunk_id": chunk.chunk_id,
+        "document": chunk.document,
+        "page_end": chunk.page_end,
+        "page_start": chunk.page_start,
+        "source_path": relative_path(chunk.source_path),
+        "title": chunk.title,
+        "token_count": chunk.token_count,
+    }
+
+
+def embed_texts(
+    *,
+    texts: list[str],
+    embedding_model: str,
+    batch_size: int,
+) -> list[list[float]]:
+    if not texts:
+        return []
+
+    try:
+        from backend.app.config import get_settings
+        from openai import OpenAI
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            "The OpenAI SDK and backend settings are required for embedding generation. "
+            "Install backend requirements before running this script."
+        ) from error
+
+    settings = get_settings()
+    if not settings.openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY is required to build the NHL rules Chroma vector index.")
+
+    client = OpenAI(api_key=settings.openai_api_key)
+    embeddings: list[list[float]] = []
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+        response = client.embeddings.create(model=embedding_model, input=batch)
+        embeddings.extend(item.embedding for item in response.data)
+
+    if len(embeddings) != len(texts):
+        raise RuntimeError(
+            f"Embedding count mismatch: expected {len(texts)}, received {len(embeddings)}."
+        )
+
+    return embeddings
+
+
+def build_chroma_collection(
+    *,
+    chunks: list[ChunkRecord],
+    chroma_path: Path,
+    collection_name: str,
+    embedding_model: str,
+    embedding_batch_size: int,
+) -> VectorBuildResult:
+    if not chunks:
+        raise RuntimeError("No chunks were created, so the Chroma vector index cannot be built.")
+
+    try:
+        import chromadb
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            "ChromaDB is required for vector index creation. Install backend requirements before running this script."
+        ) from error
+
+    chroma_path.mkdir(parents=True, exist_ok=True)
+    texts = [chunk.text for chunk in chunks]
+    embeddings = embed_texts(
+        texts=texts,
+        embedding_model=embedding_model,
+        batch_size=embedding_batch_size,
+    )
+
+    client = chromadb.PersistentClient(path=str(chroma_path))
+    try:
+        client.delete_collection(collection_name)
+    except Exception:
+        pass
+    collection = client.create_collection(
+        name=collection_name,
+        metadata={"hnsw:space": "cosine"},
+    )
+    collection.add(
+        ids=[chunk.chunk_id for chunk in chunks],
+        documents=texts,
+        embeddings=embeddings,
+        metadatas=[chunk_metadata(chunk) for chunk in chunks],
+    )
+
+    inserted_count = collection.count()
+    if inserted_count != len(chunks):
+        raise RuntimeError(
+            f"Chroma collection count mismatch: expected {len(chunks)}, found {inserted_count}."
+        )
+
+    return VectorBuildResult(
+        chroma_path=chroma_path,
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+        inserted_count=inserted_count,
+    )
 
 
 def validate_sources(source_dir: Path) -> dict[str, Path]:
@@ -214,6 +337,7 @@ def write_index_meta(
     chunks_count: int,
     target_tokens: int,
     overlap_tokens: int,
+    vector_build: VectorBuildResult,
 ) -> None:
     sources = validate_sources(source_dir)
     source_page_counts = {
@@ -229,7 +353,7 @@ def write_index_meta(
         for document in SOURCE_DOCUMENTS
     }
     metadata = {
-        "build_stage": "phase_2_pdf_processing_and_chunk_build",
+        "build_stage": "phase_3_vector_db_build",
         "built_at": datetime.now(timezone.utc).isoformat(),
         "documents_jsonl": relative_path(output_dir / "documents.jsonl"),
         "chunks_jsonl": relative_path(output_dir / "chunks.jsonl"),
@@ -247,6 +371,16 @@ def write_index_meta(
             "target_tokens": target_tokens,
             "overlap_tokens": overlap_tokens,
             "token_estimate": "whitespace_words",
+        },
+        "embedding": {
+            "model": vector_build.embedding_model,
+            "provider": "openai",
+        },
+        "vector_store": {
+            "collection_name": vector_build.collection_name,
+            "inserted_count": vector_build.inserted_count,
+            "path": relative_path(vector_build.chroma_path),
+            "type": "chromadb",
         },
         "sources": {
             document: {
@@ -266,6 +400,10 @@ def build_index(
     *,
     source_dir: Path,
     output_dir: Path,
+    chroma_path: Path,
+    collection_name: str,
+    embedding_model: str,
+    embedding_batch_size: int,
     target_tokens: int,
     overlap_tokens: int,
 ) -> None:
@@ -284,6 +422,13 @@ def build_index(
 
     documents_count = jsonl_write(output_dir / "documents.jsonl", (page_record_to_json(page) for page in pages))
     chunks_count = jsonl_write(output_dir / "chunks.jsonl", (chunk_record_to_json(chunk) for chunk in chunks))
+    vector_build = build_chroma_collection(
+        chunks=chunks,
+        chroma_path=chroma_path,
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+        embedding_batch_size=embedding_batch_size,
+    )
     write_index_meta(
         source_dir=source_dir,
         output_dir=output_dir,
@@ -293,6 +438,7 @@ def build_index(
         chunks_count=chunks_count,
         target_tokens=target_tokens,
         overlap_tokens=overlap_tokens,
+        vector_build=vector_build,
     )
 
     print(f"Source PDFs found: {', '.join(relative_path(path) for path in validate_sources(source_dir).values())}")
@@ -307,6 +453,10 @@ def build_index(
         )
     print(f"Wrote documents: {relative_path(output_dir / 'documents.jsonl')}")
     print(f"Wrote chunks: {relative_path(output_dir / 'chunks.jsonl')}")
+    print(f"Embedding model: {vector_build.embedding_model}")
+    print(f"Chroma collection: {vector_build.collection_name}")
+    print(f"Chroma path: {relative_path(vector_build.chroma_path)}")
+    print(f"Chroma records inserted: {vector_build.inserted_count}")
     print(f"Wrote metadata: {relative_path(output_dir / 'index_meta.json')}")
 
 
@@ -323,6 +473,28 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
         help="Directory where processed artifacts will be written.",
+    )
+    parser.add_argument(
+        "--chroma-path",
+        type=Path,
+        default=DEFAULT_CHROMA_DIR,
+        help="Persistent ChromaDB directory for the NHL rules vector collection.",
+    )
+    parser.add_argument(
+        "--collection-name",
+        default=DEFAULT_CHROMA_COLLECTION,
+        help="ChromaDB collection name for NHL rules chunks.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=DEFAULT_EMBEDDING_MODEL,
+        help="OpenAI embedding model used for chunk vectors.",
+    )
+    parser.add_argument(
+        "--embedding-batch-size",
+        type=int,
+        default=64,
+        help="Number of chunks to embed in each OpenAI embedding request.",
     )
     parser.add_argument(
         "--target-tokens",
@@ -344,6 +516,10 @@ def main() -> None:
     build_index(
         source_dir=args.source_dir,
         output_dir=args.output_dir,
+        chroma_path=project_path(args.chroma_path),
+        collection_name=args.collection_name,
+        embedding_model=args.embedding_model,
+        embedding_batch_size=args.embedding_batch_size,
         target_tokens=args.target_tokens,
         overlap_tokens=args.overlap_tokens,
     )

@@ -64,9 +64,15 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_answer_model: str = Field(default="gpt-5.4-mini", alias="OPENAI_ANSWER_MODEL")
     openai_classifier_model: str = Field(default="gpt-5.4-nano", alias="OPENAI_CLASSIFIER_MODEL")
+    openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
     openai_reasoning_effort: str | None = None
     openai_max_tool_rounds: int = 8
     openai_max_output_tokens: int = 2000
+    nhl_rules_chroma_path: Path = Field(
+        default=ROOT_DIR / "data" / "nhl" / "vector_store" / "chroma",
+        alias="NHL_RULES_CHROMA_PATH",
+    )
+    nhl_rules_chroma_collection: str = Field(default="nhl_rules", alias="NHL_RULES_CHROMA_COLLECTION")
     capwages_api_key: str | None = Field(default=None, alias="CAPWAGES_API_KEY")
 
     model_config = SettingsConfigDict(

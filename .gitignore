@@ -5,3 +5,5 @@ node_modules/
 dist/
 frontend/.env
 frontend/tsconfig.tsbuildinfo
+data/nhl/processed/
+data/nhl/vector_store/
