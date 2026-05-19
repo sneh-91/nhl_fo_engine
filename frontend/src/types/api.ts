@@ -280,6 +280,21 @@ export type TeamSummaryResult = {
   team: ToolTeamData;
 };
 
+export type RulesRetrievedChunk = {
+  chunk_id: string;
+  document: "rulebook";
+  title: string;
+  page_start: number;
+  page_end: number;
+  source_path: string;
+  score: number | null;
+  text_preview: string;
+};
+
+export type RulesRetrievalResult = {
+  chunks: RulesRetrievedChunk[];
+};
+
 export type ToolInvocation = {
   tool_name: string;
   arguments: Record<string, unknown>;
@@ -293,7 +308,8 @@ export type ToolInvocation = {
       | PlayerProfileToolResult
       | PlayerContractToolResult
       | PlayerSummaryResult
-      | TeamSummaryResult;
+      | TeamSummaryResult
+      | RulesRetrievalResult;
     error?: {
       type: string;
       message: string;
