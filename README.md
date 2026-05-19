@@ -1,8 +1,7 @@
 # HockeyOps AI 🏒
 
-HockeyOps AI is a local NHL front-office assistant. Ask hockey ops questions in the browser and get concise answers backed by structured data from NHL API, CapWages, local MoneyPuck files, and manual team-context data.
+HockeyOps AI is a local NHL front-office assistant. Ask hockey ops questions in the browser and get concise answers backed by structured data from NHL API, CapWages,  MoneyPuck.com, and manual team-context data.
 
-Current version: `0.5.0-phase6/phase7`
 
 ## What It Does
 
