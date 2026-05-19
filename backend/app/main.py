@@ -19,6 +19,7 @@ from .models import AskQuestionSupportData
 from .models import OrchestratorDiagnosticsResponse
 from .services.normalization import PlayerNormalizer
 from .services.moneypuck import MoneyPuckService
+from .services.nhl_rules_orchestration import NHLRulesOrchestrator
 from .services.nhl_rules_rag import NHLRulesRAGService
 from .services.orchestration import HockeyOpsOrchestrator
 from .services.team_context import TeamContextService
@@ -34,6 +35,10 @@ async def lifespan(app: FastAPI):
     app.state.moneypuck_service = MoneyPuckService(settings)
     app.state.team_context_service = TeamContextService(settings)
     app.state.nhl_rules_rag_service = NHLRulesRAGService(settings)
+    app.state.nhl_rules_orchestrator = NHLRulesOrchestrator(
+        settings=settings,
+        rag_service=app.state.nhl_rules_rag_service,
+    )
     app.state.player_tool_service = PlayerToolService(
         settings=settings,
         nhl_client=app.state.nhl_client,
@@ -132,7 +137,11 @@ async def orchestrator_diagnostics() -> OrchestratorDiagnosticsResponse:
     },
 )
 async def ask_question(payload: AskQuestionRequest) -> AskQuestionResponse:
-    orchestrator: HockeyOpsOrchestrator = app.state.hockeyops_orchestrator
+    orchestrator: HockeyOpsOrchestrator | NHLRulesOrchestrator
+    if payload.question_mode == "nhl_rules":
+        orchestrator = app.state.nhl_rules_orchestrator
+    else:
+        orchestrator = app.state.hockeyops_orchestrator
 
     try:
         result = await orchestrator.answer_question(payload.question)
