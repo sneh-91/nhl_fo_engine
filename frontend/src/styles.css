@@ -409,6 +409,32 @@ h4 {
   margin-bottom: 16px;
 }
 
+.rules-source-list {
+  display: grid;
+  gap: 12px;
+}
+
+.rules-source-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(7, 13, 20, 0.42);
+  padding: 14px;
+}
+
+.rules-source-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rules-preview {
+  margin-bottom: 0;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
 .player-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }

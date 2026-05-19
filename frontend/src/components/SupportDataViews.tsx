@@ -9,6 +9,7 @@ import type {
   PlayerContractToolResult,
   PlayerProfileToolResult,
   PlayerSummaryResult,
+  RulesRetrievalResult,
   SearchResult,
   SkaterLeaderboardResult,
   TeamSummaryResult,
@@ -274,6 +275,67 @@ function TeamCard(props: { team: ToolTeamData }) {
           ))}
         </ul>
       ) : null}
+    </article>
+  );
+}
+
+function formatRulebookPageRange(pageStart: number, pageEnd: number) {
+  if (pageStart && pageEnd && pageStart !== pageEnd) {
+    return `Pages ${pageStart}-${pageEnd}`;
+  }
+
+  if (pageStart) {
+    return `Page ${pageStart}`;
+  }
+
+  return "Page unavailable";
+}
+
+function formatRetrievalScore(score: number | null) {
+  if (score === null) {
+    return null;
+  }
+
+  return score.toFixed(3);
+}
+
+function RulesRetrievalView(props: { result: RulesRetrievalResult }) {
+  const { chunks } = props.result;
+
+  return (
+    <article className="support-block rules-support">
+      <div className="support-block-header">
+        <div>
+          <p className="section-kicker">Rulebook sources</p>
+          <h3>NHL Rules context</h3>
+        </div>
+        <p className="result-meta">
+          {chunks.length} source{chunks.length === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      {chunks.length > 0 ? (
+        <div className="rules-source-list">
+          {chunks.map((chunk) => {
+            const score = formatRetrievalScore(chunk.score);
+
+            return (
+              <section key={chunk.chunk_id} className="rules-source-card">
+                <div className="rules-source-header">
+                  <div>
+                    <h4>{chunk.title || "NHL Rulebook"}</h4>
+                    <p className="player-subtitle">{formatRulebookPageRange(chunk.page_start, chunk.page_end)}</p>
+                  </div>
+                  {score ? <span className="badge">Score {score}</span> : null}
+                </div>
+                <p className="rules-preview">{chunk.text_preview}</p>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <p>No rulebook sources were returned.</p>
+      )}
     </article>
   );
 }
@@ -952,6 +1014,15 @@ export function ToolTrace(props: { toolInvocations: ToolInvocation[] }) {
               <TeamDetailsView
                 key={key}
                 result={toolInvocation.output.result as TeamSummaryResult}
+              />
+            );
+          }
+
+          if (toolInvocation.tool_name === "retrieve_nhl_rules_context") {
+            return (
+              <RulesRetrievalView
+                key={key}
+                result={toolInvocation.output.result as RulesRetrievalResult}
               />
             );
           }
