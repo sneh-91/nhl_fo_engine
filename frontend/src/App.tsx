@@ -33,6 +33,19 @@ export default function App() {
   const [, startTransition] = useTransition();
   const activeSampleQuestions = sampleQuestionsByMode[questionMode];
   const shownLimitations = result ? visibleLimitations(result.limitations) : [];
+  const supportDataView = result
+    ? result.support_data.display_items.length > 0
+      ? (
+        <CuratedSupportView
+          displayItems={result.support_data.display_items}
+          toolInvocations={result.support_data.tool_invocations}
+        />
+      )
+      : <ToolTrace toolInvocations={result.support_data.tool_invocations} />
+    : null;
+  const isNhlRulesResult = result?.support_data.tool_invocations.some(
+    (toolInvocation) => toolInvocation.tool_name === "retrieve_nhl_rules_context",
+  ) ?? false;
 
   useEffect(() => {
     let cancelled = false;
@@ -189,14 +202,7 @@ export default function App() {
 
       {result ? (
         <>
-          {result.support_data.display_items.length > 0 ? (
-            <CuratedSupportView
-              displayItems={result.support_data.display_items}
-              toolInvocations={result.support_data.tool_invocations}
-            />
-          ) : (
-            <ToolTrace toolInvocations={result.support_data.tool_invocations} />
-          )}
+          {!isNhlRulesResult ? supportDataView : null}
 
           <section className="panel answer-panel">
             <div className="panel-header">
@@ -217,6 +223,8 @@ export default function App() {
               </div>
             ) : null}
           </section>
+
+          {isNhlRulesResult ? supportDataView : null}
         </>
       ) : null}
     </main>

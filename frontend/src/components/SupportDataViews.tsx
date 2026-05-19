@@ -291,14 +291,6 @@ function formatRulebookPageRange(pageStart: number, pageEnd: number) {
   return "Page unavailable";
 }
 
-function formatRetrievalScore(score: number | null) {
-  if (score === null) {
-    return null;
-  }
-
-  return score.toFixed(3);
-}
-
 function RulesRetrievalView(props: { result: RulesRetrievalResult }) {
   const { chunks } = props.result;
 
@@ -316,22 +308,17 @@ function RulesRetrievalView(props: { result: RulesRetrievalResult }) {
 
       {chunks.length > 0 ? (
         <div className="rules-source-list">
-          {chunks.map((chunk) => {
-            const score = formatRetrievalScore(chunk.score);
-
-            return (
-              <section key={chunk.chunk_id} className="rules-source-card">
-                <div className="rules-source-header">
-                  <div>
-                    <h4>{chunk.title || "NHL Rulebook"}</h4>
-                    <p className="player-subtitle">{formatRulebookPageRange(chunk.page_start, chunk.page_end)}</p>
-                  </div>
-                  {score ? <span className="badge">Score {score}</span> : null}
+          {chunks.map((chunk) => (
+            <section key={chunk.chunk_id} className="rules-source-card">
+              <div className="rules-source-header">
+                <div>
+                  <h4>{chunk.title || "NHL Rulebook"}</h4>
+                  <p className="player-subtitle">{formatRulebookPageRange(chunk.page_start, chunk.page_end)}</p>
                 </div>
-                <p className="rules-preview">{chunk.text_preview}</p>
-              </section>
-            );
-          })}
+              </div>
+              <p className="rules-preview">{chunk.text_preview}</p>
+            </section>
+          ))}
         </div>
       ) : (
         <p>No rulebook sources were returned.</p>
