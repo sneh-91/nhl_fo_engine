@@ -140,7 +140,20 @@ export default function App() {
           <h1>Ask Hockey Questions.</h1>
           <p className="lede">Search, compare, and summarize players with contract context.</p>
         </div>
-        <p className="hero-source-note">Data from NHL API, CapWages, & MoneyPuck.com</p>
+        <p className="hero-source-note">
+          Data from{" "}
+          <a href="https://www.nhl.com/" target="_blank" rel="noopener noreferrer">
+            NHL API
+          </a>
+          ,{" "}
+          <a href="https://capwages.com/" target="_blank" rel="noopener noreferrer">
+            CapWages
+          </a>
+          , &{" "}
+          <a href="https://moneypuck.com/" target="_blank" rel="noopener noreferrer">
+            MoneyPuck.com
+          </a>
+        </p>
       </section>
 
       <section className="panel">

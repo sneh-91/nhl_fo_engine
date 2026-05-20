@@ -95,6 +95,18 @@ textarea {
   opacity: 0.78;
 }
 
+.hero-source-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.hero-source-note a:hover {
+  opacity: 1;
+  text-decoration-color: currentColor;
+}
+
 .status-tile,
 .boundary-card,
 .micro-panel {
